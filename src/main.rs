@@ -1,23 +1,76 @@
 use std::env;
-use std::fs::{OpenOptions, File};
-use std::io::{Write, Read};
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Write};
 
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use serenity::framework::StandardFramework;
-use serenity::{async_trait, framework::standard::CommandResult};
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
+use serenity::{async_trait, framework::standard::CommandResult};
 
 use serenity::framework::standard::macros::{command, group};
-
-
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 
 mod structs;
 use structs::*;
 
+const MAX_TOKENS: u32 = 600;
+
 const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+const LOW_QUALITY_ID: u64 = 1175189750311817249;
+const HIGH_QUALITY_ID: u64 = 1175210913972883576;
+
+fn calculate_image_token_cost(width: u32, height: u32, detail: &str) -> u32 {
+    const LOW_DETAIL_COST: u32 = 85;
+    const HIGH_DETAIL_COST_PER_TILE: u32 = 170;
+    const ADDITIONAL_COST: u32 = 85;
+    const MAX_DIMENSION: u32 = 2048;
+    const SCALE_TO: u32 = 768;
+    const TILE_SIZE: u32 = 512;
+
+    match detail {
+        "low" => LOW_DETAIL_COST,
+        "high" => {
+            // Scale the image if either dimension is larger than the maximum allowed.
+            let (scaled_width, scaled_height) = if width > MAX_DIMENSION || height > MAX_DIMENSION {
+                let aspect_ratio = width as f32 / height as f32;
+                if width > height {
+                    (
+                        MAX_DIMENSION,
+                        (MAX_DIMENSION as f32 / aspect_ratio).round() as u32,
+                    )
+                } else {
+                    (
+                        (MAX_DIMENSION as f32 * aspect_ratio).round() as u32,
+                        MAX_DIMENSION,
+                    )
+                }
+            } else {
+                (width, height)
+            };
+
+            // Further scale the image so that the shortest side is 768 pixels long.
+            let (final_width, final_height) = {
+                let aspect_ratio = scaled_width as f32 / scaled_height as f32;
+                if scaled_width < scaled_height {
+                    (SCALE_TO, (SCALE_TO as f32 / aspect_ratio).round() as u32)
+                } else {
+                    ((SCALE_TO as f32 * aspect_ratio).round() as u32, SCALE_TO)
+                }
+            };
+
+            // Calculate the number of 512px tiles needed.
+            let tiles_across = (final_width as f32 / TILE_SIZE as f32).ceil() as u32;
+            let tiles_down = (final_height as f32 / TILE_SIZE as f32).ceil() as u32;
+            let total_tiles = tiles_across * tiles_down;
+
+            // Calculate the final token cost.
+            total_tiles * HIGH_DETAIL_COST_PER_TILE + ADDITIONAL_COST
+        }
+        _ => panic!("Invalid detail level: {}", detail),
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct UsageStats {
@@ -25,14 +78,20 @@ struct UsageStats {
     cost: u32,
 }
 
-fn convert_tokens_to_cost(input_tokens: u32, output_tokens: u32, image_count: usize) -> f32 {
+fn convert_tokens_to_cost(
+    input_tokens: u32,
+    output_tokens: u32,
+    width: u32,
+    height: u32,
+    detail_level: &str,
+) -> f32 {
     const COST_PER_INPUT_TOKEN: f32 = 0.01 / 1000.0;
     const COST_PER_OUTPUT_TOKEN: f32 = 0.03 / 1000.0;
-    const TOKENS_PER_IMAGE: u32 = 85;
     let input_cost = input_tokens as f32 * COST_PER_INPUT_TOKEN;
     let output_cost = output_tokens as f32 * COST_PER_OUTPUT_TOKEN;
-    let image_cost = image_count as f32 * TOKENS_PER_IMAGE as f32 * COST_PER_OUTPUT_TOKEN;
-    
+    let image_cost =
+        calculate_image_token_cost(width, height, detail_level) as f32 * COST_PER_OUTPUT_TOKEN;
+
     // Calculate the total cost
     let total_cost = input_cost + output_cost + image_cost;
 
@@ -43,10 +102,7 @@ fn convert_tokens_to_cost(input_tokens: u32, output_tokens: u32, image_count: us
 }
 
 fn update_usage_stats(tokens_used: u32) {
-    let mut stats = read_usage_stats().unwrap_or(UsageStats {
-        uses: 0,
-        cost: 0,
-    });
+    let mut stats = read_usage_stats().unwrap_or(UsageStats { uses: 0, cost: 0 });
 
     stats.uses += 1;
     stats.cost += tokens_used;
@@ -88,13 +144,19 @@ impl EventHandler for Handler {
 
     async fn message(&self, ctx: Context, new_message: Message) {
         // Ignore messages in other channels
-        if new_message.channel_id != 1175189750311817249 {
-            println!("Ignoring message in other channel");
+        if new_message.channel_id != LOW_QUALITY_ID && new_message.channel_id != HIGH_QUALITY_ID {
+            // println!("Ignoring message in other channel");
             return;
         }
+        let quality = match new_message.channel_id {
+            serenity::model::id::ChannelId(LOW_QUALITY_ID) => "low",
+            serenity::model::id::ChannelId(HIGH_QUALITY_ID) => "high",
+            _ => unreachable!(),
+        };
+
         // Ignore messages from bots
         if new_message.author.bot {
-            println!("Ignoring message from bot");
+            // println!("Ignoring message from bot");
             return;
         }
         // Ignore messages from users without the role
@@ -111,7 +173,7 @@ impl EventHandler for Handler {
         println!("Attachment count: {}", attachment_count);
         if attachment_count == 0 {
             println!("Ignoring message without attachment");
-            new_message.reply(ctx, "Please attach an image!").await.unwrap();
+            // new_message.reply(ctx, "Please attach an image!").await.unwrap();
             return;
         }
         // Check if the attachment is an image
@@ -142,6 +204,14 @@ impl EventHandler for Handler {
 
         let openai_token = std::env::var("OPENAI_TOKEN").expect("OPENAI_TOKEN not set");
 
+        let text = if message_text.is_empty() {
+            println!("Message text is empty, using default");
+            "What is in this image?".to_string()
+        } else {
+            println!("Prompt: {}", message_text);
+            message_text
+        };
+
         let chat_completion_request = ChatCompletionRequest {
             model: "gpt-4-vision-preview".to_string(),
             messages: vec![UserMessage {
@@ -149,7 +219,7 @@ impl EventHandler for Handler {
                 content: vec![
                     Content {
                         content_type: "text".to_string(),
-                        text: Some(message_text),
+                        text: text.into(),
                         image_url: None,
                     },
                     // TODO: Add support for multiple images
@@ -158,12 +228,12 @@ impl EventHandler for Handler {
                         text: None,
                         image_url: Some(ImageUrl {
                             url: file.url.clone(),
-                            detail: "low".to_string(), // or "high"
+                            detail: quality.to_string(),
                         }),
                     },
                 ],
             }],
-            max_tokens: 300,
+            max_tokens: MAX_TOKENS,
         };
 
         let client = reqwest::Client::new();
@@ -185,21 +255,31 @@ impl EventHandler for Handler {
         // Prase the string of data into serde_json::Value.
         let v: serde_json::Value = response.json().await.unwrap();
 
-        // TODO: Check if the response is valid
+        // Check if response is valid
 
         // Access the nested total_tokens value
         let input_tokens = v["usage"]["prompt_tokens"]
             .as_u64()
-            .expect("prompt_tokens should be a u64");
-        let output_tokens = v["usage"]["completion_tokens"]
-            .as_u64()
-            .expect("completion_tokens should be a u64");
+            .expect(format!("prompt_tokens should be a u64\nfull response: \n\n{:?}", v).as_str());
+        let output_tokens = v["usage"]["completion_tokens"].as_u64().expect(
+            format!(
+                "completion_tokens should be a u64\nfull response: \n\n{:?}",
+                v
+            )
+            .as_str(),
+        );
         let reply = v["choices"][0]["message"]["content"]
             .as_str()
-            .expect("content should be a string");
+            .expect(format!("content should be a string\nfull response: \n\n{:?}", v).as_str());
+        let (height, width) = (file.height.unwrap(), file.width.unwrap());
 
-        let total_cost =
-            convert_tokens_to_cost(input_tokens as u32, output_tokens as u32, attachment_count);
+        let total_cost = convert_tokens_to_cost(
+            input_tokens as u32,
+            output_tokens as u32,
+            width as u32,
+            height as u32,
+            quality,
+        );
 
         // TODO: Create an embed
 
@@ -207,7 +287,7 @@ impl EventHandler for Handler {
         new_message
             .reply(ctx, format!("{}\n\n`Cost: ${:.2}`", reply, total_cost))
             .await
-            .unwrap();
+            .unwrap(); // todo: add error handling
     }
 }
 
