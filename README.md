@@ -40,7 +40,7 @@ To use the chatbot, simply attach an image or type a message in a designated cha
 
 ## TODO
 
-- [ ] Implement typing indicator while the bot generates a response
+- [x] Implement typing indicator while the bot generates a response
 - [ ] Add support for multiple images in a single message
 - [ ] Create an embed for the bot's reply
 - [ ] Improve error handling and error messages

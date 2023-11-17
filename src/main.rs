@@ -1,10 +1,12 @@
 use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
+use std::sync::Arc;
 
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use serenity::framework::StandardFramework;
+use serenity::http::{Typing, Http};
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
@@ -161,7 +163,6 @@ impl EventHandler for Handler {
         }
         // Ignore messages from users without the role
         let member = new_message.member(&ctx).await.unwrap();
-        // pub struct RoleId(#[serde(with = "snowflake")] pub u64);
         let role_id = serenity::model::id::RoleId(1175203159195533382);
         if !member.roles.contains(&role_id) {
             println!("User {} doesn't have the role", member.user.name);
@@ -200,7 +201,11 @@ impl EventHandler for Handler {
         // now get the text of the message
         let message_text = new_message.content.clone(); // this is without the attachment
 
-        // TODO: Implement typing indicator
+        // typing indicator
+        let http = Http::new(&env::var("DISCORD_TOKEN").expect("Token not set!"));
+        let typing = Typing::start(Arc::new(http), new_message.channel_id.into()).unwrap();
+
+
 
         let openai_token = std::env::var("OPENAI_TOKEN").expect("OPENAI_TOKEN not set");
 
@@ -288,6 +293,8 @@ impl EventHandler for Handler {
             .reply(ctx, format!("{}\n\n`Cost: ${:.2}`", reply, total_cost))
             .await
             .unwrap(); // todo: add error handling
+
+        typing.stop();
     }
 }
 
