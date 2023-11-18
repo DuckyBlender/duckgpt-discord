@@ -18,128 +18,16 @@ use serenity::framework::standard::macros::{command, group};
 mod structs;
 use structs::*;
 
+mod functions;
+use functions::*;
+
 const MAX_TOKENS: u32 = 600;
 
 const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
 const LOW_QUALITY_ID: u64 = 1175189750311817249;
 const HIGH_QUALITY_ID: u64 = 1175210913972883576;
 
-fn calculate_image_token_cost(width: u32, height: u32, detail: &str) -> u32 {
-    const LOW_DETAIL_COST: u32 = 85;
-    const HIGH_DETAIL_COST_PER_TILE: u32 = 170;
-    const ADDITIONAL_COST: u32 = 85;
-    const MAX_DIMENSION: u32 = 2048;
-    const SCALE_TO: u32 = 768;
-    const TILE_SIZE: u32 = 512;
-
-    match detail {
-        "low" => LOW_DETAIL_COST,
-        "high" => {
-            // Scale the image if either dimension is larger than the maximum allowed.
-            let (scaled_width, scaled_height) = if width > MAX_DIMENSION || height > MAX_DIMENSION {
-                let aspect_ratio = width as f32 / height as f32;
-                if width > height {
-                    (
-                        MAX_DIMENSION,
-                        (MAX_DIMENSION as f32 / aspect_ratio).round() as u32,
-                    )
-                } else {
-                    (
-                        (MAX_DIMENSION as f32 * aspect_ratio).round() as u32,
-                        MAX_DIMENSION,
-                    )
-                }
-            } else {
-                (width, height)
-            };
-
-            // Further scale the image so that the shortest side is 768 pixels long.
-            let (final_width, final_height) = {
-                let aspect_ratio = scaled_width as f32 / scaled_height as f32;
-                if scaled_width < scaled_height {
-                    (SCALE_TO, (SCALE_TO as f32 / aspect_ratio).round() as u32)
-                } else {
-                    ((SCALE_TO as f32 * aspect_ratio).round() as u32, SCALE_TO)
-                }
-            };
-
-            // Calculate the number of 512px tiles needed.
-            let tiles_across = (final_width as f32 / TILE_SIZE as f32).ceil() as u32;
-            let tiles_down = (final_height as f32 / TILE_SIZE as f32).ceil() as u32;
-            let total_tiles = tiles_across * tiles_down;
-
-            // Calculate the final token cost.
-            total_tiles * HIGH_DETAIL_COST_PER_TILE + ADDITIONAL_COST
-        }
-        _ => panic!("Invalid detail level: {}", detail),
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct UsageStats {
-    uses: u32,
-    cost: u32,
-}
-
-fn convert_tokens_to_cost(
-    input_tokens: u32,
-    output_tokens: u32,
-    width: u32,
-    height: u32,
-    detail_level: &str,
-) -> f32 {
-    const COST_PER_INPUT_TOKEN: f32 = 0.01 / 1000.0;
-    const COST_PER_OUTPUT_TOKEN: f32 = 0.03 / 1000.0;
-    let input_cost = input_tokens as f32 * COST_PER_INPUT_TOKEN;
-    let output_cost = output_tokens as f32 * COST_PER_OUTPUT_TOKEN;
-    let image_cost =
-        calculate_image_token_cost(width, height, detail_level) as f32 * COST_PER_OUTPUT_TOKEN;
-
-    // Calculate the total cost
-    let total_cost = input_cost + output_cost + image_cost;
-
-    // Update and save the usage stats
-    update_usage_stats(input_tokens + output_tokens);
-
-    total_cost
-}
-
-fn update_usage_stats(tokens_used: u32) {
-    let mut stats = read_usage_stats().unwrap_or(UsageStats { uses: 0, cost: 0 });
-
-    stats.uses += 1;
-    stats.cost += tokens_used;
-
-    let stats_json = serde_json::to_string(&stats).expect("Error converting stats to JSON");
-    let mut file = OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .open("usage_stats.json")
-        .expect("Error opening usage_stats.json for writing");
-    file.write_all(stats_json.as_bytes())
-        .expect("Error writing to usage_stats.json");
-}
-
-fn read_usage_stats() -> Option<UsageStats> {
-    let mut file = match File::open("usage_stats.json") {
-        Ok(file) => file,
-        Err(_) => {
-            // Create the file
-            let file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open("usage_stats.json")
-                .expect("Error creating usage_stats.json");
-            file
-        }
-    };
-
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)
-        .expect("Error reading usage_stats.json");
-
-    serde_json::from_str(&contents).ok()
-}
+// Add this function to check if a string is a valid URL and points to an image
 
 #[group]
 // #[commands(ping)]
@@ -186,6 +74,7 @@ impl EventHandler for Handler {
             // new_message.reply(ctx, "Please attach an image!").await.unwrap();
             return;
         }
+
         // Check if the attachment is an image
         let file = new_message.attachments.first().unwrap(); // safe to unwrap
         if !ALLOWED_EXTENSIONS
@@ -262,81 +151,132 @@ impl EventHandler for Handler {
             .headers(headers)
             .json(&chat_completion_request)
             .send()
-            .await
-            .unwrap();
-        println!("Request took {}ms", now.elapsed().as_millis());
-        let elapsed = now.elapsed().as_millis();
-
-        // Prase the string of data into serde_json::Value.
-        let v: serde_json::Value = response.json().await.unwrap();
-
-        // Check if response is valid
-
-        // Access the nested total_tokens value
-        let input_tokens = v["usage"]["prompt_tokens"]
-            .as_u64()
-            .expect(format!("prompt_tokens should be a u64\nfull response: \n\n{:?}", v).as_str());
-        let output_tokens = v["usage"]["completion_tokens"].as_u64().expect(
-            format!(
-                "completion_tokens should be a u64\nfull response: \n\n{:?}",
-                v
-            )
-            .as_str(),
-        );
-        let reply = v["choices"][0]["message"]["content"]
-            .as_str()
-            .expect(format!("content should be a string\nfull response: \n\n{:?}", v).as_str());
-        let (height, width) = (file.height.unwrap(), file.width.unwrap());
-
-        let total_cost = convert_tokens_to_cost(
-            input_tokens as u32,
-            output_tokens as u32,
-            width as u32,
-            height as u32,
-            quality,
-        );
-
-        // Form the embed reply
-        let embed_result = new_message
-            .channel_id
-            .send_message(&ctx.http, |m| {
-                m.embed(|e| {
-                    e.title("Image Analysis Result")
-                        .description(format!(
-                            "Analysis for the submitted image in {} quality.",
-                            quality
-                        ))
-                        .image(file.url.as_str()) // Use the URL of the submitted image
-                        .fields(vec![
-                            ("Prompt", text, false), // Display the prompt used for the analysis
-                            ("Response", format!("```\n{}\n```", reply), false), // Display the OpenAI API response
-                        ])
-                        .field("Analysis Time", format!("{:.2} seconds", elapsed as f64 / 1000.0), true) // Display the time taken for analysis
-                        .field("Estimated Cost", format!("${:.4}", total_cost), true) // Display the estimated cost
-                        .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender")) // Add a footer
-                        // .timestamp(Timestamp::now()) // Add a timestamp for the current time
-                })
-            })
             .await;
 
-        // Check if the message was sent successfully and handle any errors
-        if let Err(why) = embed_result {
-            println!("Error sending message: {:?}", why);
-            // send a reply to the user
-            new_message
-                .reply(
-                    ctx,
-                    format!(
-                        "Error sending message: {:?}\n\n`Cost: ${:.2}`",
-                        why, total_cost
-                    ),
-                )
-                .await
-                .unwrap();
-        }
+        println!("Request took {}ms", now.elapsed().as_millis());
+        let elapsed = now.elapsed().as_millis();
+        
+        match response {
+            // SUCCESSFUL RESPONSE
+            Ok(response) if response.status().is_success() => {
 
+                // Prase the string of data into serde_json::Value.
+                let v: serde_json::Value = response.json().await.unwrap();
+
+                // Access the nested total_tokens value
+                let input_tokens = v["usage"]["prompt_tokens"].as_u64().expect(
+                    format!("prompt_tokens should be a u64\nfull response: \n\n{:?}", v).as_str(),
+                );
+                let output_tokens = v["usage"]["completion_tokens"].as_u64().expect(
+                    format!(
+                        "completion_tokens should be a u64\nfull response: \n\n{:?}",
+                        v
+                    )
+                    .as_str(),
+                );
+                let reply = v["choices"][0]["message"]["content"].as_str().expect(
+                    format!("content should be a string\nfull response: \n\n{:?}", v).as_str(),
+                );
+                let (height, width) = (file.height.unwrap(), file.width.unwrap());
+
+                let total_cost = convert_tokens_to_cost(
+                    input_tokens as u32,
+                    output_tokens as u32,
+                    width as u32,
+                    height as u32,
+                    quality,
+                );
+
+                // Form the embed reply
+                let embed_result = new_message
+                    .channel_id
+                    .send_message(&ctx.http, |m| {
+                        m.embed(|e| {
+                            e.title("Image Analysis Result")
+                                .description(format!(
+                                    "Analysis for the submitted image in {} quality.",
+                                    quality
+                                ))
+                                .image(file.url.as_str()) // Use the URL of the submitted image
+                                .fields(vec![
+                                    ("Prompt", text, false), // Display the prompt used for the analysis
+                                    ("Response", format!("```\n{}\n```", reply), false), // Display the OpenAI API response
+                                ])
+                                .field(
+                                    "Analysis Time",
+                                    format!("{:.2} seconds", elapsed as f64 / 1000.0),
+                                    true,
+                                ) // Display the time taken for analysis
+                                .field("Estimated Cost", format!("${:.4}", total_cost), true) // Display the estimated cost
+                                .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))
+                            // Add a footer
+                            // .timestamp(Timestamp::now()) // Add a timestamp for the current time
+                        })
+                    })
+                    .await;
+
+                // Check if the message was sent successfully and handle any errors
+                if let Err(why) = embed_result {
+                    println!("Error sending message: {:?}", why);
+                    // send a reply to the user
+                    new_message
+                        .reply(
+                            ctx,
+                            format!(
+                                "Error sending message: {:?}\n\n`Cost: ${:.2}`",
+                                why, total_cost
+                            ),
+                        )
+                        .await
+                        .unwrap();
+                }
+
+                
+            }
+            // NON SUCCESSFUL RESPONSE
+            Ok(response) => {
+                let error_value: serde_json::Value = response.json().await.unwrap_or_else(|_| {
+                    serde_json::json!({
+                        "error": {
+                            "message": "Failed to parse error response from OpenAI API."
+                        }
+                    })
+                });
+                let error_message = error_value["error"]["message"]
+                    .as_str()
+                    .unwrap_or("Unknown error occurred.");
+                println!("====================");
+                println!("Error from OpenAI API: {}", error_message);
+                println!("Debug information");
+                println!("Image Name: {}", file.filename);
+                println!("Image URL: {}", file.url);
+                println!("Message Text: {}", text);
+                println!("====================");
+                
+                // Reply to the user with the error message
+                new_message
+                    .reply(ctx, format!("Error from OpenAI API: {}", error_message))
+                    .await
+                    .unwrap();
+                
+            }
+            // REQUEST ERROR
+            Err(error) => {
+                println!("Error sending request to OpenAI API: {:?}", error);
+                // Reply to the user with a generic error message
+                new_message
+                    .reply(
+                        ctx,
+                        "Error communicating with OpenAI API. Please try again later.",
+                    )
+                    .await
+                    .unwrap();
+                
+            }
+        }
         typing.stop();
     }
+
 }
 
 #[tokio::main]
