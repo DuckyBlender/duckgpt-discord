@@ -1,15 +1,13 @@
-use std::{fs::OpenOptions, io::Write};
+// use crate::ALLOWED_EXTENSIONS;
 
-use crate::{ALLOWED_EXTENSIONS, structs::UsageStats};
+// pub fn is_image_url(url: &str) -> bool {
+//     let url = match url::Url::parse(url) {
+//         Ok(url) => url,
+//         Err(_) => return false,
+//     };
 
-pub fn is_image_url(url: &str) -> bool {
-    let url = match url::Url::parse(url) {
-        Ok(url) => url,
-        Err(_) => return false,
-    };
-
-    url.scheme() == "http" || url.scheme() == "https" && ALLOWED_EXTENSIONS.iter().any(|ext| url.path().ends_with(ext))
-}
+//     url.scheme() == "http" || url.scheme() == "https" && ALLOWED_EXTENSIONS.iter().any(|ext| url.path().ends_with(ext))
+// }
 
 pub fn calculate_image_token_cost(width: u32, height: u32, detail: &str) -> u32 {
     const LOW_DETAIL_COST: u32 = 85;

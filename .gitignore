@@ -19,5 +19,3 @@ Cargo.lock
 /target
 
 .env
-
-usage_stats.json

@@ -29,7 +29,6 @@ pub struct ChatCompletionRequest {
     pub max_tokens: u32,
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UsageStats {
     pub uses: u32,

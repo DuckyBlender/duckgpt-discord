@@ -1,10 +1,7 @@
 use std::env;
-use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
 use std::sync::Arc;
 
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-use serde::{Deserialize, Serialize};
 use serenity::framework::StandardFramework;
 use serenity::http::{Http, Typing};
 use serenity::model::channel::Message;
@@ -12,6 +9,7 @@ use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 use serenity::{async_trait, framework::standard::CommandResult};
 use std::time::Instant;
+use tracing::{debug, error, info};
 
 use serenity::framework::standard::macros::{command, group};
 
@@ -27,8 +25,6 @@ const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
 const LOW_QUALITY_ID: u64 = 1175189750311817249;
 const HIGH_QUALITY_ID: u64 = 1175210913972883576;
 
-// Add this function to check if a string is a valid URL and points to an image
-
 #[group]
 // #[commands(ping)]
 struct General;
@@ -38,13 +34,13 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, _ctx: Context, ready: Ready) {
-        println!("{} is connected!", ready.user.name);
+        info!("{} is connected!", ready.user.name);
     }
 
     async fn message(&self, ctx: Context, new_message: Message) {
         // Ignore messages in other channels
         if new_message.channel_id != LOW_QUALITY_ID && new_message.channel_id != HIGH_QUALITY_ID {
-            // println!("Ignoring message in other channel");
+            debug!("Ignoring message in other channel");
             return;
         }
         let quality = match new_message.channel_id {
@@ -55,22 +51,22 @@ impl EventHandler for Handler {
 
         // Ignore messages from bots
         if new_message.author.bot {
-            // println!("Ignoring message from bot");
+            debug!("Ignoring message from bot");
             return;
         }
         // Ignore messages from users without the role
         let member = new_message.member(&ctx).await.unwrap();
         let role_id = serenity::model::id::RoleId(1175203159195533382);
         if !member.roles.contains(&role_id) {
-            println!("User {} doesn't have the role", member.user.name);
+            info!("User {} doesn't have the role", member.user.name); // this should never happen as the discord is setup so that only people with the role can send messages
             return;
         }
         // Ignore messages that don't contain an attachment
         let attachment_count = new_message.attachments.len();
         // TODO: Also check for embeds
-        println!("Attachment count: {}", attachment_count);
+        debug!("Attachment count: {}", attachment_count);
         if attachment_count == 0 {
-            println!("Ignoring message without attachment");
+            debug!("Ignoring message without attachment");
             // new_message.reply(ctx, "Please attach an image!").await.unwrap();
             return;
         }
@@ -106,10 +102,10 @@ impl EventHandler for Handler {
         let openai_token = std::env::var("OPENAI_TOKEN").expect("OPENAI_TOKEN not set");
 
         let text = if message_text.is_empty() {
-            println!("Message text is empty, using default");
+            debug!("Message text is empty, using default");
             "What is in this image?".to_string()
         } else {
-            println!("Prompt: {}", message_text);
+            debug!("Prompt: {}", message_text);
             message_text
         };
 
@@ -153,13 +149,12 @@ impl EventHandler for Handler {
             .send()
             .await;
 
-        println!("Request took {}ms", now.elapsed().as_millis());
+        debug!("Request took {}ms", now.elapsed().as_millis());
         let elapsed = now.elapsed().as_millis();
-        
+
         match response {
             // SUCCESSFUL RESPONSE
             Ok(response) if response.status().is_success() => {
-
                 // Prase the string of data into serde_json::Value.
                 let v: serde_json::Value = response.json().await.unwrap();
 
@@ -217,7 +212,7 @@ impl EventHandler for Handler {
 
                 // Check if the message was sent successfully and handle any errors
                 if let Err(why) = embed_result {
-                    println!("Error sending message: {:?}", why);
+                    error!("Error sending message: {:?}", why);
                     // send a reply to the user
                     new_message
                         .reply(
@@ -230,8 +225,6 @@ impl EventHandler for Handler {
                         .await
                         .unwrap();
                 }
-
-                
             }
             // NON SUCCESSFUL RESPONSE
             Ok(response) => {
@@ -245,24 +238,17 @@ impl EventHandler for Handler {
                 let error_message = error_value["error"]["message"]
                     .as_str()
                     .unwrap_or("Unknown error occurred.");
-                println!("====================");
-                println!("Error from OpenAI API: {}", error_message);
-                println!("Debug information");
-                println!("Image Name: {}", file.filename);
-                println!("Image URL: {}", file.url);
-                println!("Message Text: {}", text);
-                println!("====================");
-                
+                error!("Error from OpenAI API: {}", error_message);
+
                 // Reply to the user with the error message
                 new_message
                     .reply(ctx, format!("Error from OpenAI API: {}", error_message))
                     .await
                     .unwrap();
-                
             }
             // REQUEST ERROR
             Err(error) => {
-                println!("Error sending request to OpenAI API: {:?}", error);
+                error!("Error sending request to OpenAI API: {:?}", error);
                 // Reply to the user with a generic error message
                 new_message
                     .reply(
@@ -271,16 +257,16 @@ impl EventHandler for Handler {
                     )
                     .await
                     .unwrap();
-                
             }
         }
         typing.stop();
     }
-
 }
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     dotenv::dotenv().expect("Failed to load .env file");
 
     let framework = StandardFramework::new()
@@ -298,7 +284,7 @@ async fn main() {
 
     // start listening for events by starting a single shard
     if let Err(why) = client.start().await {
-        println!("An error occurred while running the client: {:?}", why);
+        error!("An error occurred while running the client: {:?}", why);
     }
 }
 
