@@ -61,39 +61,45 @@ impl EventHandler for Handler {
             info!("User {} doesn't have the role", member.user.name); // this should never happen as the discord is setup so that only people with the role can send messages
             return;
         }
-        // Ignore messages that don't contain an attachment
+        // Ignore messages that don't contain an attachment or URL
         let attachment_count = new_message.attachments.len();
-        // TODO: Also check for embeds
+        let has_url = is_image_url(&new_message.content);
         debug!("Attachment count: {}", attachment_count);
-        if attachment_count == 0 {
-            debug!("Ignoring message without attachment");
-            // new_message.reply(ctx, "Please attach an image!").await.unwrap();
+        if attachment_count == 0 && !has_url {
+            debug!("Ignoring message without attachment or URL");
+            // new_message.reply(ctx, "Please attach an image or provide a URL!").await.unwrap();
             return;
         }
 
         // Check if the attachment is an image
-        let file = new_message.attachments.first().unwrap(); // safe to unwrap
-        if !ALLOWED_EXTENSIONS
-            .iter()
-            .any(|&x| file.filename.ends_with(x))
-        {
-            // reply with an error message
-            new_message
-                .reply(
-                    ctx,
-                    format!(
-                        "Invalid file type ({})! Supported file types: {}",
-                        &file.filename.as_str(),
-                        ALLOWED_EXTENSIONS.join(", ")
-                    ),
-                )
-                .await
-                .unwrap();
-            return;
-        }
-        // great, now we have an image
+        let file = if attachment_count > 0 {
+            let file = new_message.attachments.first().unwrap(); // safe to unwrap
+            if !ALLOWED_EXTENSIONS
+                .iter()
+                .any(|&x| file.filename.ends_with(x))
+            {
+                // reply with an error message
+                new_message
+                    .reply(
+                        ctx,
+                        format!(
+                            "Invalid file type ({})! Supported file types: {}",
+                            &file.filename.as_str(),
+                            ALLOWED_EXTENSIONS.join(", ")
+                        ),
+                    )
+                    .await
+                    .unwrap();
+                return;
+            }
+            Some(file)
+        } else {
+            None
+        };
+
+        // great, now we have an image or URL
         // now get the text of the message
-        let message_text = new_message.content.clone(); // this is without the attachment
+        let message_text = new_message.content.clone(); // this is without the attachment or URL
 
         // typing indicator
         let http = Http::new(&env::var("DISCORD_TOKEN").expect("Token not set!"));
@@ -123,8 +129,8 @@ impl EventHandler for Handler {
                     Content {
                         content_type: "image_url".to_string(),
                         text: None,
-                        image_url: Some(ImageUrl {
-                            url: file.url.clone(),
+                        image_url: file.map(|f| ImageUrl {
+                            url: f.url.clone(),
                             detail: quality.to_string(),
                         }),
                     },
@@ -172,7 +178,11 @@ impl EventHandler for Handler {
                 let reply = v["choices"][0]["message"]["content"].as_str().expect(
                     format!("content should be a string\nfull response: \n\n{:?}", v).as_str(),
                 );
-                let (height, width) = (file.height.unwrap(), file.width.unwrap());
+                let (height, width) = if let Some(file) = &file {
+                    (file.height.unwrap(), file.width.unwrap())
+                } else {
+                    (0, 0)
+                };
 
                 let total_cost = convert_tokens_to_cost(
                     input_tokens as u32,
@@ -192,7 +202,7 @@ impl EventHandler for Handler {
                                     "Analysis for the submitted image in {} quality.",
                                     quality
                                 ))
-                                .image(file.url.as_str()) // Use the URL of the submitted image
+                                .image(file.map(|f| f.url.as_str()).unwrap_or("")) // Use the URL of the submitted image or empty string if URL is provided
                                 .fields(vec![
                                     ("Prompt", text, false), // Display the prompt used for the analysis
                                     ("Response", format!("```\n{}\n```", reply), false), // Display the OpenAI API response
