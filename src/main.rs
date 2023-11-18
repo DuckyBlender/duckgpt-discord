@@ -22,8 +22,8 @@ use functions::*;
 const MAX_TOKENS: u32 = 600;
 
 const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
-const LOW_QUALITY_ID: u64 = 1175189750311817249;
-const HIGH_QUALITY_ID: u64 = 1175210913972883576;
+const LOW_QUALITY_CHANNEL_ID: u64 = 1175189750311817249;
+const HIGH_QUALITY_CHANNEL_ID: u64 = 1175210913972883576;
 
 #[group]
 // #[commands(ping)]
@@ -39,13 +39,15 @@ impl EventHandler for Handler {
 
     async fn message(&self, ctx: Context, new_message: Message) {
         // Ignore messages in other channels
-        if new_message.channel_id != LOW_QUALITY_ID && new_message.channel_id != HIGH_QUALITY_ID {
+        if new_message.channel_id != LOW_QUALITY_CHANNEL_ID
+            && new_message.channel_id != HIGH_QUALITY_CHANNEL_ID
+        {
             debug!("Ignoring message in other channel");
             return;
         }
         let quality = match new_message.channel_id {
-            serenity::model::id::ChannelId(LOW_QUALITY_ID) => "low",
-            serenity::model::id::ChannelId(HIGH_QUALITY_ID) => "high",
+            serenity::model::id::ChannelId(LOW_QUALITY_CHANNEL_ID) => "low",
+            serenity::model::id::ChannelId(HIGH_QUALITY_CHANNEL_ID) => "high",
             _ => unreachable!(),
         };
 
@@ -56,17 +58,16 @@ impl EventHandler for Handler {
         }
         // Ignore messages from users without the role
         let member = new_message.member(&ctx).await.unwrap();
-        let role_id = serenity::model::id::RoleId(1175203159195533382);
-        if !member.roles.contains(&role_id) {
+        if !member.roles.contains(&1175203159195533382.into()) {
             info!("User {} doesn't have the role", member.user.name); // this should never happen as the discord is setup so that only people with the role can send messages
             return;
         }
         // Ignore messages that don't contain an attachment or URL
         let attachment_count = new_message.attachments.len();
-        let has_url = is_image_url(&new_message.content);
+        // let has_url = is_image_url(&new_message.content);
         debug!("Attachment count: {}", attachment_count);
-        if attachment_count == 0 && !has_url {
-            debug!("Ignoring message without attachment or URL");
+        if attachment_count == 0 {
+            debug!("Ignoring message without attachment");
             // new_message.reply(ctx, "Please attach an image or provide a URL!").await.unwrap();
             return;
         }
@@ -181,7 +182,7 @@ impl EventHandler for Handler {
                 let (height, width) = if let Some(file) = &file {
                     (file.height.unwrap(), file.width.unwrap())
                 } else {
-                    (0, 0)
+                    unreachable!()
                 };
 
                 let total_cost = convert_tokens_to_cost(
@@ -250,23 +251,45 @@ impl EventHandler for Handler {
                     .unwrap_or("Unknown error occurred.");
                 error!("Error from OpenAI API: {}", error_message);
 
-                // Reply to the user with the error message
-                new_message
-                    .reply(ctx, format!("Error from OpenAI API: {}", error_message))
-                    .await
-                    .unwrap();
+                // Form the embed error message
+                let embed_result = new_message
+                    .channel_id
+                    .send_message(&ctx.http, |m| {
+                        m.embed(|e| {
+                            e.title("Error")
+                                .description(format!("Error from OpenAI API: {}", error_message))
+                                .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))
+                        })
+                    })
+                    .await;
+
+                // Check if the message was sent successfully and handle any errors
+                if let Err(why) = embed_result {
+                    error!("Error sending message: {:?}", why);
+                }
             }
             // REQUEST ERROR
             Err(error) => {
                 error!("Error sending request to OpenAI API: {:?}", error);
-                // Reply to the user with a generic error message
-                new_message
-                    .reply(
-                        ctx,
-                        "Error communicating with OpenAI API. Please try again later.",
-                    )
-                    .await
-                    .unwrap();
+
+                // Form the embed error message
+                let embed_result = new_message
+                    .channel_id
+                    .send_message(&ctx.http, |m| {
+                        m.embed(|e| {
+                            e.title("Error")
+                                .description(
+                                    "Error communicating with OpenAI API. Please try again later.",
+                                )
+                                .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))
+                        })
+                    })
+                    .await;
+
+                // Check if the message was sent successfully and handle any errors
+                if let Err(why) = embed_result {
+                    error!("Error sending message: {:?}", why);
+                }
             }
         }
         typing.stop();

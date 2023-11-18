@@ -1,13 +1,20 @@
-use crate::ALLOWED_EXTENSIONS;
+// use tracing::info;
+// use crate::ALLOWED_EXTENSIONS;
 
-pub fn is_image_url(url: &str) -> bool {
-    let url = match url::Url::parse(url) {
-        Ok(url) => url,
-        Err(_) => return false,
-    };
+// pub fn is_image_url(url: &str) -> bool {
+//     info!("Checking if {} is an image URL", url);
+//     let url = match url::Url::parse(url) {
+//         Ok(url) => url,
+//         Err(_) => return false,
+//     };
+//     info!("URL is valid");
+//     info!("Scheme: {}", url.scheme());
 
-    url.scheme() == "http" || url.scheme() == "https" && ALLOWED_EXTENSIONS.iter().any(|ext| url.path().ends_with(ext))
-}
+//     let allowed = ALLOWED_EXTENSIONS.iter().any(|ext| url.path().ends_with(ext));
+//     // the above bool is broken
+
+//     url.scheme() == "http" || url.scheme() == "https" && allowed
+// }
 
 pub fn calculate_image_token_cost(width: u32, height: u32, detail: &str) -> u32 {
     const LOW_DETAIL_COST: u32 = 85;

@@ -1,6 +1,6 @@
 # Discord AI Chatbot
 
-This is a Discord chatbot that uses the OpenAI GPT-4 model to generate responses to user messages. The bot can process both text and image inputs and provide relevant and creative replies.
+This is a personal Discord bot which can generate responses to images using the [OpenAI API](https://openai.com/). It is built using the [Serenity](https://github.com/serenity-rs/serenity) Discord library. This bot is not intended for public use, but feel free to use it as a reference for your own projects.
 
 ## Features
 
@@ -11,7 +11,7 @@ This is a Discord chatbot that uses the OpenAI GPT-4 model to generate responses
 
 ## Usage
 
-To use the chatbot, simply attach an image or type a message in a designated channel. The bot will generate a response based on the input and reply to the message.
+To use the chatbot, simply attach an imag in a designated channel. The bot will generate a response based on the input and reply to the message.
 
 ## Installation
 
@@ -41,9 +41,10 @@ To use the chatbot, simply attach an image or type a message in a designated cha
 ## TODO
 
 - [x] Implement typing indicator while the bot generates a response
+- [x] Create an embed for the bot's reply
+- [x] Improve error handling and error messages
 - [ ] Add support for multiple images in a single message
-- [ ] Create an embed for the bot's reply
-- [ ] Improve error handling and error messages
+- [ ] More bot configuration options
 
 ## License
 
