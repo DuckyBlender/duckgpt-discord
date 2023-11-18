@@ -6,11 +6,12 @@ use std::sync::Arc;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use serenity::framework::StandardFramework;
-use serenity::http::{Typing, Http};
+use serenity::http::{Http, Typing};
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 use serenity::{async_trait, framework::standard::CommandResult};
+use std::time::Instant;
 
 use serenity::framework::standard::macros::{command, group};
 
@@ -122,7 +123,15 @@ fn update_usage_stats(tokens_used: u32) {
 fn read_usage_stats() -> Option<UsageStats> {
     let mut file = match File::open("usage_stats.json") {
         Ok(file) => file,
-        Err(_) => return None,
+        Err(_) => {
+            // Create the file
+            let file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open("usage_stats.json")
+                .expect("Error creating usage_stats.json");
+            file
+        }
     };
 
     let mut contents = String::new();
@@ -205,8 +214,6 @@ impl EventHandler for Handler {
         let http = Http::new(&env::var("DISCORD_TOKEN").expect("Token not set!"));
         let typing = Typing::start(Arc::new(http), new_message.channel_id.into()).unwrap();
 
-
-
         let openai_token = std::env::var("OPENAI_TOKEN").expect("OPENAI_TOKEN not set");
 
         let text = if message_text.is_empty() {
@@ -224,7 +231,7 @@ impl EventHandler for Handler {
                 content: vec![
                     Content {
                         content_type: "text".to_string(),
-                        text: text.into(),
+                        text: text.clone().into(),
                         image_url: None,
                     },
                     // TODO: Add support for multiple images
@@ -249,6 +256,7 @@ impl EventHandler for Handler {
             HeaderValue::from_str(&format!("Bearer {}", openai_token)).unwrap(),
         );
 
+        let now = Instant::now();
         let response = client
             .post("https://api.openai.com/v1/chat/completions")
             .headers(headers)
@@ -256,6 +264,8 @@ impl EventHandler for Handler {
             .send()
             .await
             .unwrap();
+        println!("Request took {}ms", now.elapsed().as_millis());
+        let elapsed = now.elapsed().as_millis();
 
         // Prase the string of data into serde_json::Value.
         let v: serde_json::Value = response.json().await.unwrap();
@@ -286,13 +296,44 @@ impl EventHandler for Handler {
             quality,
         );
 
-        // TODO: Create an embed
+        // Form the embed reply
+        let embed_result = new_message
+            .channel_id
+            .send_message(&ctx.http, |m| {
+                m.embed(|e| {
+                    e.title("Image Analysis Result")
+                        .description(format!(
+                            "Analysis for the submitted image in {} quality.",
+                            quality
+                        ))
+                        .image(file.url.as_str()) // Use the URL of the submitted image
+                        .fields(vec![
+                            ("Prompt", text, false), // Display the prompt used for the analysis
+                            ("Response", format!("```\n{}\n```", reply), false), // Display the OpenAI API response
+                        ])
+                        .field("Analysis Time", format!("{:.2} seconds", elapsed as f64 / 1000.0), true) // Display the time taken for analysis
+                        .field("Estimated Cost", format!("${:.4}", total_cost), true) // Display the estimated cost
+                        .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender")) // Add a footer
+                        // .timestamp(Timestamp::now()) // Add a timestamp for the current time
+                })
+            })
+            .await;
 
-        // Send the reply
-        new_message
-            .reply(ctx, format!("{}\n\n`Cost: ${:.2}`", reply, total_cost))
-            .await
-            .unwrap(); // todo: add error handling
+        // Check if the message was sent successfully and handle any errors
+        if let Err(why) = embed_result {
+            println!("Error sending message: {:?}", why);
+            // send a reply to the user
+            new_message
+                .reply(
+                    ctx,
+                    format!(
+                        "Error sending message: {:?}\n\n`Cost: ${:.2}`",
+                        why, total_cost
+                    ),
+                )
+                .await
+                .unwrap();
+        }
 
         typing.stop();
     }
