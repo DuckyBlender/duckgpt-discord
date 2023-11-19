@@ -11,7 +11,7 @@ This is a personal Discord bot which can generate responses to images using the 
 
 ## Usage
 
-To use the chatbot, simply attach an imag in a designated channel. The bot will generate a response based on the input and reply to the message.
+To use this bot, read the installation and figure it out lmao
 
 ## Installation
 
