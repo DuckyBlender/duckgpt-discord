@@ -43,8 +43,11 @@ To use the chatbot, simply attach an imag in a designated channel. The bot will 
 - [x] Implement typing indicator while the bot generates a response
 - [x] Create an embed for the bot's reply
 - [x] Improve error handling and error messages
+- [x] Major refactor
+- [x] More bot configuration options
+- [ ] Add support for image generation (image.rs)
+- [ ] Reply instead of sending a message
 - [ ] Add support for multiple images in a single message
-- [ ] More bot configuration options
 
 ## License
 

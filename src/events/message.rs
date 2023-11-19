@@ -7,14 +7,12 @@ use crate::constants::*;
 pub async fn handle(ctx: &Context, msg: Message) {
     // Check if the message is in a TTS channel
     if let Some(voice) = get_tts_voice_from_channel_id(msg.channel_id.0) {
-        info!("TTS channel message");
         handle_tts(ctx, msg, voice).await;
         return;
     }
 
     // Check if the message is in a vision channel
     if is_vision_channel(msg.channel_id.0) {
-        info!("Vision channel message");
         handle_vision(ctx, msg).await;
         return;
     }

@@ -3,6 +3,7 @@ mod constants;
 mod events;
 mod handler;
 mod utils;
+mod structs;
 
 use handler::Handler;
 use serenity::framework::standard::macros::group;

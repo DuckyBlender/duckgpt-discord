@@ -1,4 +1,5 @@
 pub const MAX_TOKENS: u32 = 600;
+pub const TESTER_ROLE_ID: u64 = 1175203159195533382;
 
 pub const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
 
