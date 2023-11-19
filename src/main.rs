@@ -193,48 +193,69 @@ impl EventHandler for Handler {
                     quality,
                 );
 
-                // Form the embed reply
-                let embed_result = new_message
-                    .channel_id
-                    .send_message(&ctx.http, |m| {
-                        m.embed(|e| {
-                            e.title("Image Analysis Result")
-                                .description(format!(
-                                    "Analysis for the submitted image in {} quality.",
-                                    quality
-                                ))
-                                .image(file.map(|f| f.url.as_str()).unwrap_or("")) // Use the URL of the submitted image or empty string if URL is provided
-                                .fields(vec![
-                                    ("Prompt", text, false), // Display the prompt used for the analysis
-                                    ("Response", format!("```\n{}\n```", reply), false), // Display the OpenAI API response
-                                ])
-                                .field(
-                                    "Analysis Time",
-                                    format!("{:.2} seconds", elapsed as f64 / 1000.0),
-                                    true,
-                                ) // Display the time taken for analysis
-                                .field("Estimated Cost", format!("${:.4}", total_cost), true) // Display the estimated cost
-                                .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))
-                            // Add a footer
-                            // .timestamp(Timestamp::now()) // Add a timestamp for the current time
-                        })
-                    })
-                    .await;
+                // Split the reply into chunks of 1000 characters
+                const MAX_EMBED_FIELD_VALUE_LEN: usize = 1000;
+                let reply_chunks: Vec<String> = reply
+                    .chars()
+                    .collect::<Vec<char>>()
+                    .chunks(MAX_EMBED_FIELD_VALUE_LEN)
+                    .map(|chunk| chunk.iter().collect::<String>())
+                    .collect();
 
-                // Check if the message was sent successfully and handle any errors
-                if let Err(why) = embed_result {
-                    error!("Error sending message: {:?}", why);
-                    // send a reply to the user
-                    new_message
-                        .reply(
-                            ctx,
-                            format!(
-                                "Error sending message: {:?}\n\n`Cost: ${:.2}`",
-                                why, total_cost
-                            ),
+                // Send each chunk as a separate embed field
+                for (i, chunk) in reply_chunks.iter().enumerate() {
+                    let title = if reply_chunks.len() > 1 {
+                        format!(
+                            "Image Analysis Result ({} of {})",
+                            i + 1,
+                            reply_chunks.len()
                         )
-                        .await
-                        .unwrap();
+                    } else {
+                        "Image Analysis Result".to_string()
+                    };
+
+                    let embed_result = new_message
+                        .channel_id
+                        .send_message(&ctx.http, |m| {
+                            m.embed(|e| {
+                                e.title(&title)
+                                    .description(format!(
+                                        "Analysis for the submitted image in {} quality.",
+                                        quality
+                                    ))
+                                    .image(file.map(|f| f.url.as_str()).unwrap_or(""))
+                                    .fields(vec![
+                                        ("Prompt", text.clone(), false),
+                                        ("Response", format!("```\n{}\n```", chunk), false),
+                                    ])
+                                    .field(
+                                        "Analysis Time",
+                                        format!("{:.2} seconds", elapsed as f64 / 1000.0),
+                                        true,
+                                    )
+                                    .field("Estimated Cost", format!("${:.4}", total_cost), true)
+                                    .footer(|f| {
+                                        f.text("Powered by OpenAI | Created by @DuckyBlender")
+                                    })
+                            })
+                        })
+                        .await;
+
+                    // Check if the message was sent successfully and handle any errors
+                    if let Err(why) = embed_result {
+                        error!("Error sending message: {:?}", why);
+                        // send a reply to the user
+                        new_message
+                            .reply(
+                                ctx.clone(),
+                                format!(
+                                    "Error sending message: {:?}\n\n`Cost: ${:.2}`",
+                                    why, total_cost
+                                ),
+                            )
+                            .await
+                            .unwrap();
+                    }
                 }
             }
             // NON SUCCESSFUL RESPONSE
@@ -303,7 +324,7 @@ async fn main() {
     dotenv::dotenv().expect("Failed to load .env file");
 
     let framework = StandardFramework::new()
-        .configure(|c| c.prefix(".")) // set the bot's prefix to "."
+        .configure(|c| c.prefix(".")) // unused prefix
         .group(&GENERAL_GROUP);
 
     // Login with a bot token from the environment
