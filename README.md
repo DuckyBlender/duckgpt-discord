@@ -32,7 +32,22 @@ To use the chatbot, simply attach an imag in a designated channel. The bot will 
    - `DISCORD_TOKEN`: Your Discord bot token
    - `OPENAI_TOKEN`: Your OpenAI API token
 
-4. Run the bot:
+4. Set the channels in the `constants.rs`` file:
+
+   - `MAX_TOKENS`: The maximum number of tokens the bot can use per message
+   - `TESTER_ROLE_ID`: The ID of the role which can use the bot
+
+   - `LOW_QUALITY_CHANNEL_ID`: The ID of the channel for low quality image recognition
+   - `HIGH_QUALITY_CHANNEL_ID`: The ID of the channel for high quality image recognition
+
+   - `ALLOY_CHANNEL_ID`: The ID of the channel for Alloy TTS
+   - `ECHO_CHANNEL_ID`: The ID of the channel for Echo TTS
+   - `FABLE_CHANNEL_ID`: The ID of the channel for Fable TTS
+   - `ONYX_CHANNEL_ID`: The ID of the channel for Onyx TTS
+   - `NOVA_CHANNEL_ID`: The ID of the channel for Nova TTS
+   - `SHIMMER_CHANNEL_ID`: The ID of the channel for Shimmer TTS
+
+5. Run the bot:
 
    ```bash
    cargo run --release

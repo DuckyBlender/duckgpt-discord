@@ -1,8 +1,6 @@
 pub const MAX_TOKENS: u32 = 600;
 pub const TESTER_ROLE_ID: u64 = 1175203159195533382;
 
-pub const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
-
 pub const LOW_QUALITY_CHANNEL_ID: u64 = 1175189750311817249;
 pub const HIGH_QUALITY_CHANNEL_ID: u64 = 1175210913972883576;
 

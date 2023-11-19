@@ -8,6 +8,8 @@ use tracing::{debug, error};
 use crate::constants::*;
 use crate::structs::*;
 
+pub const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+
 pub async fn handle_vision(ctx: &Context, msg: Message) {
     let quality = match msg.channel_id {
         serenity::model::id::ChannelId(LOW_QUALITY_CHANNEL_ID) => "low",
