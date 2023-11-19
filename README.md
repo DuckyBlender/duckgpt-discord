@@ -1,4 +1,4 @@
-# Discord GPT4V Bot
+# DuckGPT Discord Bot
 
 This is a personal Discord bot which can generate responses to images using the [OpenAI API](https://openai.com/). It is built using the [Serenity](https://github.com/serenity-rs/serenity) Discord library. This bot is not intended for public use, but feel free to use it as a reference for your own projects.
 
