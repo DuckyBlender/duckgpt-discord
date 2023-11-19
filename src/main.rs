@@ -22,8 +22,16 @@ use functions::*;
 const MAX_TOKENS: u32 = 600;
 
 const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+
 const LOW_QUALITY_CHANNEL_ID: u64 = 1175189750311817249;
 const HIGH_QUALITY_CHANNEL_ID: u64 = 1175210913972883576;
+
+const ALLOY_CHANNEL_ID: u64 = 1175600783979466843;
+const ECHO_CHANNEL_ID: u64 = 1175601080093130875;
+const FABLE_CHANNEL_ID: u64 = 1175601105070194708;
+const ONYX_CHANNEL_ID: u64 = 1175601123273474148;
+const NOVA_CHANNEL_ID: u64 = 1175601138683359272;
+const SHIMMER_CHANNEL_ID: u64 = 1175601147155849236;
 
 #[group]
 // #[commands(ping)]
@@ -37,60 +45,119 @@ impl EventHandler for Handler {
         info!("{} is connected!", ready.user.name);
     }
 
-    async fn message(&self, ctx: Context, new_message: Message) {
+    async fn message(&self, ctx: Context, msg: Message) {
         // Ignore messages in other channels
-        if new_message.channel_id != LOW_QUALITY_CHANNEL_ID
-            && new_message.channel_id != HIGH_QUALITY_CHANNEL_ID
-        {
-            debug!("Ignoring message in other channel");
-            return;
+        match msg.channel_id {
+            serenity::model::id::ChannelId(ALLOY_CHANNEL_ID)
+            | serenity::model::id::ChannelId(ECHO_CHANNEL_ID)
+            | serenity::model::id::ChannelId(FABLE_CHANNEL_ID)
+            | serenity::model::id::ChannelId(ONYX_CHANNEL_ID)
+            | serenity::model::id::ChannelId(NOVA_CHANNEL_ID)
+            | serenity::model::id::ChannelId(SHIMMER_CHANNEL_ID) => {
+                let voice = match msg.channel_id {
+                    serenity::model::id::ChannelId(ALLOY_CHANNEL_ID) => "alloy",
+                    serenity::model::id::ChannelId(ECHO_CHANNEL_ID) => "echo",
+                    serenity::model::id::ChannelId(FABLE_CHANNEL_ID) => "fable",
+                    serenity::model::id::ChannelId(ONYX_CHANNEL_ID) => "onyx",
+                    serenity::model::id::ChannelId(NOVA_CHANNEL_ID) => "nova",
+                    serenity::model::id::ChannelId(SHIMMER_CHANNEL_ID) => "shimmer",
+                    _ => unreachable!(),
+                };
+
+                info!("TTS channel message");
+                let openai_token = std::env::var("OPENAI_TOKEN").expect("OPENAI_TOKEN not set");
+
+                // Get the message
+                let message = msg.content.clone();
+                // Send the request to the TTS API
+                let client = reqwest::Client::new();
+                let speech_request = SpeechRequest {
+                    model: "tts-1".to_string(),
+                    input: message,
+                    voice: voice.to_string(),
+                };
+
+                let response = client
+                    .post("https://api.openai.com/v1/audio/speech")
+                    .header("Authorization", format!("Bearer {}", openai_token))
+                    .header("Content-Type", "application/json")
+                    .json(&speech_request)
+                    .send()
+                    .await
+                    .unwrap();
+
+                // The response is a file, so we need to get the bytes
+                let bytes = response.bytes().await.unwrap();
+
+                // Send the bytes to the channel
+                let _ = msg
+                    .channel_id
+                    .send_message(&ctx.http, |m| {
+                        m.content("Here is your TTS message!")
+                            .add_file((bytes.as_ref(), "tts.mp3"))
+                    })
+                    .await;
+
+                return ;
+                
+            }
+            serenity::model::id::ChannelId(LOW_QUALITY_CHANNEL_ID) => {
+                info!("Low quality channel message");
+            }
+            serenity::model::id::ChannelId(HIGH_QUALITY_CHANNEL_ID) => {
+                info!("High quality channel message");
+            }
+            _ => {
+                info!("Ignoring message in other channel");
+                return;
+            }
         }
-        let quality = match new_message.channel_id {
+
+        let quality = match msg.channel_id {
             serenity::model::id::ChannelId(LOW_QUALITY_CHANNEL_ID) => "low",
             serenity::model::id::ChannelId(HIGH_QUALITY_CHANNEL_ID) => "high",
             _ => unreachable!(),
         };
 
         // Ignore messages from bots
-        if new_message.author.bot {
+        if msg.author.bot {
             debug!("Ignoring message from bot");
             return;
         }
         // Ignore messages from users without the role
-        let member = new_message.member(&ctx).await.unwrap();
+        let member = msg.member(&ctx).await.unwrap();
         if !member.roles.contains(&1175203159195533382.into()) {
             info!("User {} doesn't have the role", member.user.name); // this should never happen as the discord is setup so that only people with the role can send messages
             return;
         }
         // Ignore messages that don't contain an attachment or URL
-        let attachment_count = new_message.attachments.len();
-        // let has_url = is_image_url(&new_message.content);
+        let attachment_count = msg.attachments.len();
+        // let has_url = is_image_url(&msg.content);
         debug!("Attachment count: {}", attachment_count);
         if attachment_count == 0 {
             debug!("Ignoring message without attachment");
-            // new_message.reply(ctx, "Please attach an image or provide a URL!").await.unwrap();
+            // msg.reply(ctx, "Please attach an image or provide a URL!").await.unwrap();
             return;
         }
 
         // Check if the attachment is an image
         let file = if attachment_count > 0 {
-            let file = new_message.attachments.first().unwrap(); // safe to unwrap
+            let file = msg.attachments.first().unwrap(); // safe to unwrap
             if !ALLOWED_EXTENSIONS
                 .iter()
                 .any(|&x| file.filename.ends_with(x))
             {
                 // reply with an error message
-                new_message
-                    .reply(
-                        ctx,
-                        format!(
-                            "Invalid file type ({})! Supported file types: {}",
-                            &file.filename.as_str(),
-                            ALLOWED_EXTENSIONS.join(", ")
-                        ),
-                    )
-                    .await
-                    .unwrap();
+                msg.reply(
+                    ctx,
+                    format!(
+                        "Invalid file type ({})! Supported file types: {}",
+                        &file.filename.as_str(),
+                        ALLOWED_EXTENSIONS.join(", ")
+                    ),
+                )
+                .await
+                .unwrap();
                 return;
             }
             Some(file)
@@ -100,11 +167,11 @@ impl EventHandler for Handler {
 
         // great, now we have an image or URL
         // now get the text of the message
-        let message_text = new_message.content.clone(); // this is without the attachment or URL
+        let message_text = msg.content.clone(); // this is without the attachment or URL
 
         // typing indicator
         let http = Http::new(&env::var("DISCORD_TOKEN").expect("Token not set!"));
-        let typing = Typing::start(Arc::new(http), new_message.channel_id.into()).unwrap();
+        let typing = Typing::start(Arc::new(http), msg.channel_id.into()).unwrap();
 
         let openai_token = std::env::var("OPENAI_TOKEN").expect("OPENAI_TOKEN not set");
 
@@ -214,7 +281,7 @@ impl EventHandler for Handler {
                         "Image Analysis Result".to_string()
                     };
 
-                    let embed_result = new_message
+                    let embed_result = msg
                         .channel_id
                         .send_message(&ctx.http, |m| {
                             m.embed(|e| {
@@ -245,16 +312,15 @@ impl EventHandler for Handler {
                     if let Err(why) = embed_result {
                         error!("Error sending message: {:?}", why);
                         // send a reply to the user
-                        new_message
-                            .reply(
-                                ctx.clone(),
-                                format!(
-                                    "Error sending message: {:?}\n\n`Cost: ${:.2}`",
-                                    why, total_cost
-                                ),
-                            )
-                            .await
-                            .unwrap();
+                        msg.reply(
+                            ctx.clone(),
+                            format!(
+                                "Error sending message: {:?}\n\n`Cost: ${:.2}`",
+                                why, total_cost
+                            ),
+                        )
+                        .await
+                        .unwrap();
                     }
                 }
             }
@@ -273,7 +339,7 @@ impl EventHandler for Handler {
                 error!("Error from OpenAI API: {}", error_message);
 
                 // Form the embed error message
-                let embed_result = new_message
+                let embed_result = msg
                     .channel_id
                     .send_message(&ctx.http, |m| {
                         m.embed(|e| {
@@ -294,7 +360,7 @@ impl EventHandler for Handler {
                 error!("Error sending request to OpenAI API: {:?}", error);
 
                 // Form the embed error message
-                let embed_result = new_message
+                let embed_result = msg
                     .channel_id
                     .send_message(&ctx.http, |m| {
                         m.embed(|e| {

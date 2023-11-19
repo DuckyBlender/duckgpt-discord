@@ -34,3 +34,10 @@ pub struct UsageStats {
     pub uses: u32,
     pub cost: u32,
 }
+
+#[derive(Serialize)]
+pub struct SpeechRequest {
+    pub model: String,
+    pub input: String,
+    pub voice: String,
+}
