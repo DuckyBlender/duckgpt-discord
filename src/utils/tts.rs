@@ -36,8 +36,23 @@ pub async fn handle_tts(ctx: &Context, msg: Message, voice: &str) {
     debug!("Request took {}ms", now.elapsed().as_millis());
     let elapsed = now.elapsed().as_millis();
 
+    let cost = calculate_cost(&message_text);
+
+    // Check if the message is too long, if it is just don't send it
+    let show_msg: bool = if message_text.len() > 1000 {
+        false
+    } else {
+        true
+    };
+    let message_text = if show_msg {
+        message_text
+    } else {
+        "Response too long to display".to_string()
+    };
     // The response is a file, so we need to get the bytes
     let bytes = response.bytes().await.unwrap();
+
+
 
     // Send the bytes to the channel
     let embed_result = msg
@@ -47,10 +62,10 @@ pub async fn handle_tts(ctx: &Context, msg: Message, voice: &str) {
                 e.title(format!("TTS from {}", msg.author.name))
                     .field("Voice", voice, false)
                     .field("Message", format!("```\n{}\n```", &message_text), false)
-                    .field("Time", format!("{}ms", elapsed), true)
+                    .field("Time", format!("{:.2} seconds", elapsed as f64 / 1000.0), true)
                     .field(
                         "Cost",
-                        format!("${:.4}", calculate_cost(&message_text)),
+                        format!("${:.4}", cost),
                         true,
                     )
                     .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))

@@ -61,7 +61,7 @@ To use the chatbot, simply attach an imag in a designated channel. The bot will 
 - [x] Major refactor
 - [x] More bot configuration options
 - [ ] Add support for image generation (image.rs)
-- [ ] Reply instead of sending a message
+- [ ] Reply instead of sending a message OR create a thread
 - [ ] Add support for multiple images in a single message
 
 ## License
