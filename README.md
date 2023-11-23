@@ -21,18 +21,24 @@ To use this bot, read the installation and figure it out lmao
    git clone https://github.com/DuckyBlender/gpt4v-discord
    ```
 
-2. Copy the example environment file:
+2. Install the dependencies
+
+   ```bash
+   sudo apt install libssl-dev pkg-config
+   ```
+
+3. Copy the example environment file:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Set the required environment variables:
+4. Set the required environment variables:
 
    - `DISCORD_TOKEN`: Your Discord bot token
    - `OPENAI_TOKEN`: Your OpenAI API token
 
-4. Set the channels in the `constants.rs`` file:
+5. Set the channels in the `constants.rs`` file:
 
    - `MAX_TOKENS`: The maximum number of tokens the bot can use per message
    - `TESTER_ROLE_ID`: The ID of the role which can use the bot
@@ -47,7 +53,7 @@ To use this bot, read the installation and figure it out lmao
    - `NOVA_CHANNEL_ID`: The ID of the channel for Nova TTS
    - `SHIMMER_CHANNEL_ID`: The ID of the channel for Shimmer TTS
 
-5. Run the bot:
+6. Run the bot:
 
    ```bash
    cargo run --release
