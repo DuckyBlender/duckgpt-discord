@@ -85,11 +85,7 @@ pub async fn handle_image(ctx: &Context, msg: Message) {
                     },
                 };
 
-                let show_msg: bool = if message.len() > 1000 {
-                    false
-                } else {
-                    true
-                };
+                let show_msg: bool = if message.len() > 1000 { false } else { true };
                 let message_text = if show_msg {
                     message
                 } else {
@@ -100,10 +96,14 @@ pub async fn handle_image(ctx: &Context, msg: Message) {
                 let embed_result = msg
                     .channel_id
                     .send_message(&ctx.http, |m| {
-                        m.embed(|e| {
+                        m.reference_message(&msg).embed(|e| {
                             e.title(format!("Image from {}", msg.author.name))
                                 .color(SUCCESS_COLOR)
-                                .field("Message", format!("```\n{}\n```", message_text.clone()), false)
+                                .field(
+                                    "Message",
+                                    format!("```\n{}\n```", message_text.clone()),
+                                    false,
+                                )
                                 .field("Time", format!("{:.2} seconds", elapsed), true)
                                 .field(
                                     "Cost",
@@ -118,7 +118,7 @@ pub async fn handle_image(ctx: &Context, msg: Message) {
                                     ),
                                     true,
                                 )
-                                .field("Model", format!("{:?}", model_friendly_name), true)
+                                .field("Model", format!("**{:?}**", model_friendly_name), true)
                                 .image(image_url)
                         })
                     })
@@ -144,7 +144,7 @@ pub async fn handle_image(ctx: &Context, msg: Message) {
                         let _ = msg
                             .channel_id
                             .send_message(&ctx.http, |m| {
-                                m.embed(|e| {
+                                m.reference_message(&msg).embed(|e| {
                                     e.title("Error")
                                         .color(ERROR_COLOR) // Red color for errors
                                         .field(
@@ -175,7 +175,7 @@ pub async fn handle_image(ctx: &Context, msg: Message) {
             let _ = msg
                 .channel_id
                 .send_message(&ctx.http, |m| {
-                    m.embed(|embed| {
+                    m.reference_message(&msg).embed(|embed| {
                         embed
                             .title("Error")
                             .color(ERROR_COLOR) // Red color for errors

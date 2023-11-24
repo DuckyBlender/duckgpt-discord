@@ -77,7 +77,7 @@ To use this bot, read the installation and figure it out lmao
 - [x] More bot configuration options
 - [x] Add support for image generation (image.rs)
 - [ ] GPT-4 conversation (I'm not really sure how to implement this correctly, maybe using threads?)
-- [ ] Reply instead of sending a message OR create a thread
+- [x] Reply instead of sending a message OR create a thread
 - [ ] Add support for multiple images in a single message
 
 ## License

@@ -5,7 +5,7 @@ use serenity::model::channel::Message;
 use serenity::prelude::*;
 use tracing::{debug, error};
 
-use crate::constants::{SUCCESS_COLOR, FOOTER_TEXT};
+use crate::constants::{FOOTER_TEXT, SUCCESS_COLOR};
 
 #[derive(Serialize)]
 pub struct SpeechRequest {
@@ -60,26 +60,21 @@ pub async fn handle_tts(ctx: &Context, msg: Message, voice: &str) {
     // The response is a file, so we need to get the bytes
     let bytes = response.bytes().await.unwrap();
 
-
-
     // Send the bytes to the channel
     let embed_result = msg
         .channel_id
         .send_message(&ctx.http, |m| {
-            m.embed(|e| {
-                e.title(format!("TTS from {}", msg.author.name))
-                    .color(SUCCESS_COLOR)
-                    .field("Voice", voice, false)
-                    .field("Message", format!("```\n{}\n```", &message_text), false)
-                    .field("Time", format!("{:.2} seconds", elapsed), true)
-                    .field(
-                        "Cost",
-                        format!("${:.4}", cost),
-                        true,
-                    )
-                    .footer(|f| f.text(FOOTER_TEXT))
-            })
-            .add_file((bytes.as_ref(), format!("{}.mp3", msg.id).as_str()))
+            m.reference_message(&msg)
+                .embed(|e| {
+                    e.title(format!("{}'s message", msg.author.name))
+                        .color(SUCCESS_COLOR)
+                        .field("Voice", voice, false)
+                        .field("Message", format!("```\n{}\n```", &message_text), false)
+                        .field("Time", format!("{:.2} seconds", elapsed), true)
+                        .field("Cost", format!("${:.4}", cost), true)
+                        .footer(|f| f.text(FOOTER_TEXT))
+                })
+                .add_file((bytes.as_ref(), format!("{}.mp3", msg.id).as_str()))
         })
         .await;
 

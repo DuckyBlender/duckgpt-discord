@@ -190,7 +190,7 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
                 let embed_result = msg
                     .channel_id
                     .send_message(&ctx.http, |m| {
-                        m.embed(|e| {
+                        m.reference_message(&msg).embed(|e| {
                             e.title(&title)
                                 .color(ERROR_COLOR)
                                 .description(format!(
@@ -243,7 +243,7 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
             let embed_result = msg
                 .channel_id
                 .send_message(&ctx.http, |m| {
-                    m.embed(|e| {
+                    m.reference_message(&msg).embed(|e| {
                         e.title("Error")
                             .description(format!("Error from OpenAI API: {}", error_message))
                             .footer(|f| f.text(FOOTER_TEXT))
