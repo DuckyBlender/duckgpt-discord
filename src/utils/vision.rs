@@ -1,12 +1,37 @@
 use std::time::Instant;
 
-use reqwest::header::{HeaderMap, CONTENT_TYPE, HeaderValue, AUTHORIZATION};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use serde::Deserialize;
+use serde::Serialize;
 use serenity::model::channel::Message;
 use serenity::prelude::*;
 use tracing::{debug, error};
 
 use crate::constants::*;
 use crate::structs::*;
+
+#[derive(Serialize, Deserialize)]
+pub struct ChatCompletionRequest {
+    pub model: String,
+    pub messages: Vec<VisionRequest>,
+    pub max_tokens: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct VisionRequest {
+    pub role: String,
+    pub content: Vec<VisionContent>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct VisionContent {
+    #[serde(rename = "type")]
+    pub content_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_url: Option<ImageUrl>,
+}
 
 pub const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
 
@@ -33,17 +58,16 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
             .any(|&x| file.filename.ends_with(x))
         {
             // reply with an error message
-            msg
-                .reply(
-                    ctx,
-                    format!(
-                        "Invalid file type ({})! Supported file types: {}",
-                        &file.filename.as_str(),
-                        ALLOWED_EXTENSIONS.join(", ")
-                    ),
-                )
-                .await
-                .unwrap();
+            msg.reply(
+                ctx,
+                format!(
+                    "Invalid file type ({})! Supported file types: {}",
+                    &file.filename.as_str(),
+                    ALLOWED_EXTENSIONS.join(", ")
+                ),
+            )
+            .await
+            .unwrap();
             return;
         }
         Some(file)
@@ -67,16 +91,16 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
 
     let chat_completion_request = ChatCompletionRequest {
         model: "gpt-4-vision-preview".to_string(),
-        messages: vec![UserMessage {
+        messages: vec![VisionRequest {
             role: "user".to_string(),
             content: vec![
-                Content {
+                VisionContent {
                     content_type: "text".to_string(),
                     text: text.clone().into(),
                     image_url: None,
                 },
                 // TODO: Add support for multiple images
-                Content {
+                VisionContent {
                     content_type: "image_url".to_string(),
                     text: None,
                     image_url: file.map(|f| ImageUrl {
@@ -105,8 +129,8 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
         .send()
         .await;
 
-    debug!("Request took {}ms", now.elapsed().as_millis());
-    let elapsed = now.elapsed().as_millis();
+    debug!("Request took {}s", now.elapsed().as_secs_f32());
+    let elapsed = now.elapsed().as_secs_f32();
 
     match response {
         // SUCCESSFUL RESPONSE
@@ -168,6 +192,7 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
                     .send_message(&ctx.http, |m| {
                         m.embed(|e| {
                             e.title(&title)
+                                .color(ERROR_COLOR)
                                 .description(format!(
                                     "Analysis for the submitted image in {} quality.",
                                     quality
@@ -177,13 +202,9 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
                                     ("Prompt", text.clone(), false),
                                     ("Response", format!("```\n{}\n```", chunk), false),
                                 ])
-                                .field(
-                                    "Analysis Time",
-                                    format!("{:.2} seconds", elapsed as f64 / 1000.0),
-                                    true,
-                                )
+                                .field("Analysis Time", format!("{:.2} seconds", elapsed), true)
                                 .field("Estimated Cost", format!("${:.4}", total_cost), true)
-                                .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))
+                                .footer(|f| f.text(FOOTER_TEXT))
                         })
                     })
                     .await;
@@ -192,16 +213,15 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
                 if let Err(why) = embed_result {
                     error!("Error sending message: {:?}", why);
                     // send a reply to the user
-                    msg
-                        .reply(
-                            ctx.clone(),
-                            format!(
-                                "Error sending message: {:?}\n\n`Cost: ${:.2}`",
-                                why, total_cost
-                            ),
-                        )
-                        .await
-                        .unwrap();
+                    msg.reply(
+                        ctx.clone(),
+                        format!(
+                            "Error sending message: {:?}\n\n`Cost: ${:.2}`",
+                            why, total_cost
+                        ),
+                    )
+                    .await
+                    .unwrap();
                 }
             }
         }
@@ -226,7 +246,7 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
                     m.embed(|e| {
                         e.title("Error")
                             .description(format!("Error from OpenAI API: {}", error_message))
-                            .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))
+                            .footer(|f| f.text(FOOTER_TEXT))
                     })
                 })
                 .await;
@@ -249,7 +269,7 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
                             .description(
                                 "Error communicating with OpenAI API. Please try again later.",
                             )
-                            .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))
+                            .footer(|f| f.text(FOOTER_TEXT))
                     })
                 })
                 .await;
@@ -262,7 +282,7 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
     }
 }
 
-pub fn calculate_image_token_cost(width: u32, height: u32, detail: &str) -> u32 {
+fn calculate_image_token_cost(width: u32, height: u32, detail: &str) -> u32 {
     const LOW_DETAIL_COST: u32 = 85;
     const HIGH_DETAIL_COST_PER_TILE: u32 = 170;
     const ADDITIONAL_COST: u32 = 85;
@@ -313,7 +333,7 @@ pub fn calculate_image_token_cost(width: u32, height: u32, detail: &str) -> u32 
     }
 }
 
-pub fn convert_tokens_to_cost(
+fn convert_tokens_to_cost(
     input_tokens: u32,
     output_tokens: u32,
     width: u32,

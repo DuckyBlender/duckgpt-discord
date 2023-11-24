@@ -1,6 +1,7 @@
 use serenity::prelude::*;
 use serenity::model::channel::Message;
 use tracing::info;
+use crate::utils::image::handle_image;
 use crate::utils::{tts::handle_tts, vision::handle_vision};
 use crate::constants::*;
 
@@ -14,6 +15,11 @@ pub async fn handle(ctx: &Context, msg: Message) {
     // Check if the message is in a vision channel
     if is_vision_channel(msg.channel_id.0) {
         handle_vision(ctx, msg).await;
+        return;
+    }
+
+    if is_image_channel(msg.channel_id.0) {
+        handle_image(ctx, msg).await;
         return;
     }
 
@@ -35,4 +41,8 @@ fn get_tts_voice_from_channel_id(channel_id: u64) -> Option<&'static str> {
 
 fn is_vision_channel(channel_id: u64) -> bool {
     channel_id == LOW_QUALITY_CHANNEL_ID || channel_id == HIGH_QUALITY_CHANNEL_ID
+}
+
+fn is_image_channel(channel_id: u64) -> bool { // todo: maybe change this to an enum and pass it to the function?
+    channel_id == DALLE3_CHANNEL_ID || channel_id == DALLE2_CHANNEL_ID || channel_id == DALLE3_HD_CHANNEL_ID
 }

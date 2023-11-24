@@ -1,10 +1,18 @@
 use std::time::Instant;
 
+use serde::Serialize;
 use serenity::model::channel::Message;
 use serenity::prelude::*;
 use tracing::{debug, error};
 
-use crate::structs::SpeechRequest;
+use crate::constants::{SUCCESS_COLOR, FOOTER_TEXT};
+
+#[derive(Serialize)]
+pub struct SpeechRequest {
+    pub model: String,
+    pub input: String,
+    pub voice: String,
+}
 
 pub async fn handle_tts(ctx: &Context, msg: Message, voice: &str) {
     let openai_token = std::env::var("OPENAI_TOKEN").expect("OPENAI_TOKEN not set");
@@ -31,10 +39,10 @@ pub async fn handle_tts(ctx: &Context, msg: Message, voice: &str) {
         .json(&speech_request)
         .send()
         .await
-        .unwrap();
+        .unwrap(); // todo: handle errors
 
-    debug!("Request took {}ms", now.elapsed().as_millis());
-    let elapsed = now.elapsed().as_millis();
+    debug!("Request took {}s", now.elapsed().as_secs_f32());
+    let elapsed = now.elapsed().as_secs_f32();
 
     let cost = calculate_cost(&message_text);
 
@@ -60,15 +68,16 @@ pub async fn handle_tts(ctx: &Context, msg: Message, voice: &str) {
         .send_message(&ctx.http, |m| {
             m.embed(|e| {
                 e.title(format!("TTS from {}", msg.author.name))
+                    .color(SUCCESS_COLOR)
                     .field("Voice", voice, false)
                     .field("Message", format!("```\n{}\n```", &message_text), false)
-                    .field("Time", format!("{:.2} seconds", elapsed as f64 / 1000.0), true)
+                    .field("Time", format!("{:.2} seconds", elapsed), true)
                     .field(
                         "Cost",
                         format!("${:.4}", cost),
                         true,
                     )
-                    .footer(|f| f.text("Powered by OpenAI | Created by @DuckyBlender"))
+                    .footer(|f| f.text(FOOTER_TEXT))
             })
             .add_file((bytes.as_ref(), format!("{}.mp3", msg.id).as_str()))
         })
