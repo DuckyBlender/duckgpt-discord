@@ -1,6 +1,5 @@
 use serenity::prelude::*;
 use serenity::model::channel::Message;
-use tracing::info;
 use crate::utils::image::handle_image;
 use crate::utils::{tts::handle_tts, vision::handle_vision};
 use crate::constants::*;
@@ -24,7 +23,7 @@ pub async fn handle(ctx: &Context, msg: Message) {
     }
 
     // Other messages are ignored
-    info!("Ignoring message in channel {}", msg.channel_id.0);
+    // info!("Ignoring message in channel {}", msg.channel_id.0);
 }
 
 fn get_tts_voice_from_channel_id(channel_id: u64) -> Option<&'static str> {

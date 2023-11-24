@@ -53,6 +53,15 @@ To use this bot, read the installation and figure it out lmao
    - `NOVA_CHANNEL_ID`: The ID of the channel for Nova TTS
    - `SHIMMER_CHANNEL_ID`: The ID of the channel for Shimmer TTS
 
+   - `DALLE3_HD_CHANNEL_ID`: The ID of the channel for DALL·E 3 HD
+   - `DALLE3_CHANNEL_ID`: The ID of the channel for DALL·E 3
+   - `DALLE2_CHANNEL_ID`: The ID of the channel for DALL·E 2
+
+   - `ERROR_COLOR`: The color of the error embeds
+   - `SUCCESS_COLOR`: The color of the success embeds
+
+   - `FOOTER_TEXT`: The text in the footer of the embeds
+
 6. Run the bot:
 
    ```bash
@@ -66,7 +75,8 @@ To use this bot, read the installation and figure it out lmao
 - [x] Improve error handling and error messages
 - [x] Major refactor
 - [x] More bot configuration options
-- [ ] Add support for image generation (image.rs)
+- [x] Add support for image generation (image.rs)
+- [ ] GPT-4 conversation (I'm not really sure how to implement this correctly, maybe using threads?)
 - [ ] Reply instead of sending a message OR create a thread
 - [ ] Add support for multiple images in a single message
 
