@@ -1,8 +1,9 @@
 use std::time::Instant;
 
 use serde::Serialize;
-use serenity::model::channel::Message;
+use serenity::builder::{CreateAttachment, CreateEmbedFooter, CreateMessage};
 use serenity::prelude::*;
+use serenity::{builder::CreateEmbed, model::channel::Message};
 use tracing::{debug, error};
 
 use crate::constants::{FOOTER_TEXT, SUCCESS_COLOR};
@@ -61,25 +62,29 @@ pub async fn handle_tts(ctx: &Context, msg: Message, voice: &str) {
     let bytes = response.bytes().await.unwrap();
 
     // Send the bytes to the channel
-    let embed_result = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            m.reference_message(&msg)
-                .embed(|e| {
-                    e.title(format!("{}'s message", msg.author.name))
-                        .color(SUCCESS_COLOR)
-                        .field("Voice", voice, false)
-                        .field("Message", format!("```\n{}\n```", &message_text), false)
-                        .field("Time", format!("{:.2} seconds", elapsed), true)
-                        .field("Cost", format!("${:.4}", cost), true)
-                        .footer(|f| f.text(FOOTER_TEXT))
-                })
-                .add_file((bytes.as_ref(), format!("{}.mp3", msg.id).as_str()))
-        })
-        .await;
+    let footer = CreateEmbedFooter::new(FOOTER_TEXT);
+
+    let embed = CreateEmbed::default()
+        .title(format!("{}'s message", msg.author.name))
+        .color(SUCCESS_COLOR)
+        .field("Voice", voice, false)
+        .field("Message", format!("```\n{}\n```", &message_text), false)
+        .field("Time", format!("{:.2} seconds", elapsed), true)
+        .field("Cost", format!("${:.4}", cost), true)
+        .footer(footer);
+
+    let builder = CreateMessage::new()
+        .reference_message(&msg)
+        .add_file(CreateAttachment::bytes(
+            bytes.as_ref(),
+            format!("{}.mp3", msg.id).as_str(),
+        ))
+        .embed(embed);
+
+    let send_result = msg.channel_id.send_message(&ctx.http, builder).await;
 
     // Check if the message was sent successfully and handle any errors
-    if let Err(why) = embed_result {
+    if let Err(why) = send_result {
         error!("Error sending message: {:?}", why);
     }
 

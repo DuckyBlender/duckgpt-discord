@@ -32,18 +32,15 @@ impl EventHandler for Handler {
 
         // Ignore messages from users without the role
         let member = msg.member(&ctx).await.unwrap();
-        if !member
-            .roles
-            .contains(&serenity::model::id::RoleId(TESTER_ROLE_ID))
-        {
+        if !member.roles.contains(&TESTER_ROLE_ID.into()) {
             warn!("User {} doesn't have the role", member.user.name); // this should never happen as the discord is setup so that only people with the role can send messages
             return;
         }
 
         // Typing indicator
         let http = Http::new(&env::var("DISCORD_TOKEN").expect("Token not set!"));
-        let typing = Typing::start(Arc::new(http), msg.channel_id.into()).unwrap();
+        let typing = Typing::start(Arc::new(http), msg.channel_id.into());
         message::handle(&ctx, msg).await;
-        typing.stop().unwrap();
+        typing.stop();
     }
 }

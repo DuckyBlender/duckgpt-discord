@@ -7,6 +7,7 @@ mod utils;
 
 use handler::Handler;
 use serenity::framework::standard::macros::group;
+use serenity::framework::standard::Configuration;
 use serenity::framework::StandardFramework;
 use serenity::prelude::*;
 use serenity::Client;
@@ -23,9 +24,9 @@ async fn main() {
 
     dotenv::dotenv().expect("Failed to load .env file");
 
-    let framework = StandardFramework::new()
-        .configure(|c| c.prefix(".")) // unused prefix
-        .group(&GENERAL_GROUP);
+    // Create the framework
+    let framework = StandardFramework::new().group(&GENERAL_GROUP);
+    framework.configure(Configuration::new().prefix("."));
 
     let token = env::var("DISCORD_TOKEN").expect("Token not set!");
     let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;

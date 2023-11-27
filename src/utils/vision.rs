@@ -3,6 +3,10 @@ use std::time::Instant;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::Deserialize;
 use serde::Serialize;
+use serenity::all::ChannelId;
+use serenity::builder::CreateEmbed;
+use serenity::builder::CreateEmbedFooter;
+use serenity::builder::CreateMessage;
 use serenity::model::channel::Message;
 use serenity::prelude::*;
 use tracing::{debug, error};
@@ -36,9 +40,14 @@ pub struct VisionContent {
 pub const ALLOWED_EXTENSIONS: [&str; 5] = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
 
 pub async fn handle_vision(ctx: &Context, msg: Message) {
+    // no idea why this "ref" thing is needed, but it is
+    // todo: make this less ugly
+    let low_quality_channel_id = ChannelId::new(LOW_QUALITY_CHANNEL_ID);
+    let high_quality_channel_id = ChannelId::new(HIGH_QUALITY_CHANNEL_ID);
+
     let quality = match msg.channel_id {
-        serenity::model::id::ChannelId(LOW_QUALITY_CHANNEL_ID) => "low",
-        serenity::model::id::ChannelId(HIGH_QUALITY_CHANNEL_ID) => "high",
+        ref id if *id == low_quality_channel_id => "low",
+        ref id if *id == high_quality_channel_id => "high",
         _ => unreachable!(),
     };
 
@@ -187,30 +196,30 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
                     "Image Analysis Result".to_string()
                 };
 
-                let embed_result = msg
-                    .channel_id
-                    .send_message(&ctx.http, |m| {
-                        m.reference_message(&msg).embed(|e| {
-                            e.title(&title)
-                                .color(ERROR_COLOR)
-                                .description(format!(
-                                    "Analysis for the submitted image in {} quality.",
-                                    quality
-                                ))
-                                .image(file.map(|f| f.url.as_str()).unwrap_or(""))
-                                .fields(vec![
-                                    ("Prompt", text.clone(), false),
-                                    ("Response", format!("```\n{}\n```", chunk), false),
-                                ])
-                                .field("Analysis Time", format!("{:.2} seconds", elapsed), true)
-                                .field("Estimated Cost", format!("${:.4}", total_cost), true)
-                                .footer(|f| f.text(FOOTER_TEXT))
-                        })
-                    })
-                    .await;
+                let footer = CreateEmbedFooter::new(FOOTER_TEXT);
+
+                let embed = CreateEmbed::default()
+                    .title(&title)
+                    .color(ERROR_COLOR)
+                    .description(format!(
+                        "Analysis for the submitted image in {} quality.",
+                        quality
+                    ))
+                    .image(file.map(|f| f.url.as_str()).unwrap_or(""))
+                    .fields(vec![
+                        ("Prompt", text.clone(), false),
+                        ("Response", format!("```\n{}\n```", chunk), false),
+                    ])
+                    .field("Analysis Time", format!("{:.2} seconds", elapsed), true)
+                    .field("Estimated Cost", format!("${:.4}", total_cost), true)
+                    .footer(footer);
+
+                let builder = CreateMessage::new().reference_message(&msg).embed(embed);
+
+                let send_result = msg.channel_id.send_message(&ctx.http, builder).await;
 
                 // Check if the message was sent successfully and handle any errors
-                if let Err(why) = embed_result {
+                if let Err(why) = send_result {
                     error!("Error sending message: {:?}", why);
                     // send a reply to the user
                     msg.reply(
@@ -240,19 +249,19 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
             error!("Error from OpenAI API: {}", error_message);
 
             // Form the embed error message
-            let embed_result = msg
-                .channel_id
-                .send_message(&ctx.http, |m| {
-                    m.reference_message(&msg).embed(|e| {
-                        e.title("Error")
-                            .description(format!("Error from OpenAI API: {}", error_message))
-                            .footer(|f| f.text(FOOTER_TEXT))
-                    })
-                })
-                .await;
+            let footer = CreateEmbedFooter::new(FOOTER_TEXT);
+            let embed = CreateEmbed::default()
+                .title("Error")
+                .color(ERROR_COLOR)
+                .description(format!("Error from OpenAI API: {}", error_message))
+                .footer(footer);
+
+            let builder = CreateMessage::new().reference_message(&msg).embed(embed);
+
+            let send_result = msg.channel_id.send_message(&ctx.http, builder).await;
 
             // Check if the message was sent successfully and handle any errors
-            if let Err(why) = embed_result {
+            if let Err(why) = send_result {
                 error!("Error sending message: {:?}", why);
             }
         }
@@ -261,21 +270,19 @@ pub async fn handle_vision(ctx: &Context, msg: Message) {
             error!("Error sending request to OpenAI API: {:?}", error);
 
             // Form the embed error message
-            let embed_result = msg
-                .channel_id
-                .send_message(&ctx.http, |m| {
-                    m.embed(|e| {
-                        e.title("Error")
-                            .description(
-                                "Error communicating with OpenAI API. Please try again later.",
-                            )
-                            .footer(|f| f.text(FOOTER_TEXT))
-                    })
-                })
-                .await;
+            let footer = CreateEmbedFooter::new(FOOTER_TEXT);
+            let embed = CreateEmbed::default()
+                .title("Error")
+                .color(ERROR_COLOR)
+                .description("Error communicating with OpenAI API. Please try again later.")
+                .footer(footer);
+
+            let builder = CreateMessage::new().reference_message(&msg).embed(embed);
+
+            let send_result = msg.channel_id.send_message(&ctx.http, builder).await;
 
             // Check if the message was sent successfully and handle any errors
-            if let Err(why) = embed_result {
+            if let Err(why) = send_result {
                 error!("Error sending message: {:?}", why);
             }
         }

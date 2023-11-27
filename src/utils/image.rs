@@ -5,28 +5,40 @@ use std::time::Instant;
 
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
-use serenity::{model::channel::Message, prelude::*};
+use serenity::{
+    all::ChannelId,
+    builder::{CreateEmbed, CreateEmbedFooter, CreateMessage},
+    model::channel::Message,
+    prelude::*,
+};
 use tracing::error;
 
 use crate::constants::{
-    DALLE2_CHANNEL_ID, DALLE3_CHANNEL_ID, DALLE3_HD_CHANNEL_ID, ERROR_COLOR, SUCCESS_COLOR,
+    DALLE2_CHANNEL_ID, DALLE3_CHANNEL_ID, DALLE3_HD_CHANNEL_ID, ERROR_COLOR, FOOTER_TEXT,
+    SUCCESS_COLOR,
 };
 
 pub async fn handle_image(ctx: &Context, msg: Message) {
     let openai_token = std::env::var("OPENAI_TOKEN").expect("OPENAI_TOKEN not set");
 
     // Check which channel the message was sent in (DALL-E 2 or DALL-E 3)
-    let channel_id = msg.channel_id.0;
+    let channel_id = msg.channel_id;
     let quality = if channel_id == DALLE3_HD_CHANNEL_ID {
         Quality::Hd
     } else {
         Quality::Standard
     };
 
+    let dalle_2_channel = ChannelId::new(DALLE2_CHANNEL_ID);
+    let dalle_3_channel = ChannelId::new(DALLE3_CHANNEL_ID);
+    let dalle_3_hd_channel = ChannelId::new(DALLE3_HD_CHANNEL_ID);
+
     let model = match channel_id {
-        DALLE2_CHANNEL_ID => Model::DallE2,
-        DALLE3_HD_CHANNEL_ID => Model::DallE3,
-        DALLE3_CHANNEL_ID => Model::DallE3,
+        // no idea why this "ref" thing is needed, but it is
+        // todo: make this less ugly
+        ref id if *id == dalle_2_channel => Model::DallE2,
+        ref id if *id == dalle_3_channel => Model::DallE3,
+        ref id if *id == dalle_3_hd_channel => Model::DallE3,
         _ => panic!("Invalid channel ID"),
     };
 
@@ -93,38 +105,34 @@ pub async fn handle_image(ctx: &Context, msg: Message) {
                 };
 
                 // Send the image URL to the channel
-                let embed_result = msg
-                    .channel_id
-                    .send_message(&ctx.http, |m| {
-                        m.reference_message(&msg).embed(|e| {
-                            e.title(format!("Image from {}", msg.author.name))
-                                .color(SUCCESS_COLOR)
-                                .field(
-                                    "Message",
-                                    format!("```\n{}\n```", message_text.clone()),
-                                    false,
-                                )
-                                .field("Time", format!("{:.2} seconds", elapsed), true)
-                                .field(
-                                    "Cost",
-                                    format!(
-                                        "${:.2}",
-                                        calculate_cost(
-                                            model,
-                                            Some(quality),
-                                            Size::Size1024x1024,
-                                            1
-                                        )
-                                    ),
-                                    true,
-                                )
-                                .field("Model", format!("**{:?}**", model_friendly_name), true)
-                                .image(image_url)
-                        })
-                    })
-                    .await;
+                let footer = CreateEmbedFooter::new(FOOTER_TEXT);
+                let embed = CreateEmbed::default()
+                    .title(format!("Image from {}", msg.author.name))
+                    .color(SUCCESS_COLOR)
+                    .field(
+                        "Message",
+                        format!("```\n{}\n```", message_text.clone()),
+                        false,
+                    )
+                    .field("Time", format!("{:.2} seconds", elapsed), true)
+                    .field(
+                        "Cost",
+                        format!(
+                            "${:.2}",
+                            calculate_cost(model, Some(quality), Size::Size1024x1024, 1)
+                        ),
+                        true,
+                    )
+                    .field("Model", format!("**{:?}**", model_friendly_name), true)
+                    .image(image_url)
+                    .footer(footer);
+
+                let builder = CreateMessage::new().reference_message(&msg).embed(embed);
+
+                let send_result = msg.channel_id.send_message(&ctx.http, builder).await;
+
                 // Check if the message was sent successfully
-                match embed_result {
+                match send_result {
                     Ok(_) => {
                         // The message was sent successfully
                     }
@@ -141,25 +149,28 @@ pub async fn handle_image(ctx: &Context, msg: Message) {
                 match error_response {
                     Ok(error) => {
                         // Inform the user what went wrong using an embed
-                        let _ = msg
-                            .channel_id
-                            .send_message(&ctx.http, |m| {
-                                m.reference_message(&msg).embed(|e| {
-                                    e.title("Error")
-                                        .color(ERROR_COLOR) // Red color for errors
-                                        .field(
-                                            "Error Code",
-                                            format!("`{}`", &error.error.code),
-                                            true,
-                                        )
-                                        .field(
-                                            "Error Message",
-                                            format!("`{}`", &error.error.message),
-                                            true,
-                                        )
-                                })
-                            })
-                            .await;
+                        let footer = CreateEmbedFooter::new(FOOTER_TEXT);
+                        let embed = CreateEmbed::default()
+                            .title("Error")
+                            .color(ERROR_COLOR)
+                            .field("Error Code", format!("`{}`", &error.error.code), true)
+                            .field("Error Message", format!("`{}`", &error.error.message), true)
+                            .footer(footer);
+
+                        let builder = CreateMessage::new().reference_message(&msg).embed(embed);
+
+                        let send_result = msg.channel_id.send_message(&ctx.http, builder).await;
+
+                        // Check if the message was sent successfully
+                        match send_result {
+                            Ok(_) => {
+                                // The message was sent successfully
+                            }
+                            Err(e) => {
+                                // There was an error sending the message
+                                error!("Error sending error message: {}", e);
+                            }
+                        }
                     }
                     Err(e) => {
                         // There was an error parsing the error response
@@ -172,20 +183,29 @@ pub async fn handle_image(ctx: &Context, msg: Message) {
             // There was an error making the request
             error!("Error making request: {}", e);
             // Inform the user that there was an error making the request
-            let _ = msg
-                .channel_id
-                .send_message(&ctx.http, |m| {
-                    m.reference_message(&msg).embed(|embed| {
-                        embed
-                            .title("Error")
-                            .color(ERROR_COLOR) // Red color for errors
-                            .description(
-                                "An error occurred while making the request to the DALL-E API.",
-                            )
-                            .field("Error Details", format!("{}", e), false)
-                    })
-                })
-                .await;
+            let footer = CreateEmbedFooter::new(FOOTER_TEXT);
+
+            let embed = CreateEmbed::default()
+                .title("Error")
+                .color(ERROR_COLOR)
+                .description("An error occurred while making the request to the DALL-E API.")
+                .field("Error Details", format!("{}", e), false)
+                .footer(footer);
+
+            let builder = CreateMessage::new().reference_message(&msg).embed(embed);
+
+            let send_result = msg.channel_id.send_message(&ctx.http, builder).await;
+
+            // Check if the message was sent successfully
+            match send_result {
+                Ok(_) => {
+                    // The message was sent successfully
+                }
+                Err(e) => {
+                    // There was an error sending the message
+                    error!("Error sending error message: {}", e);
+                }
+            }
         }
     };
 }
