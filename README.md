@@ -1,85 +1,59 @@
 # DuckGPT Discord Bot
 
-This is a personal Discord bot which can generate responses to images using the [OpenAI API](https://openai.com/). It is built using the [Serenity](https://github.com/serenity-rs/serenity) Discord library. This bot is not intended for public use, but feel free to use it as a reference for your own projects.
+## Description
+
+This is a AI Discord bot which currently supports Mistral. It requires Ollama to run in the background. This bot is mainly for fun and learning purposes. It is probably not very useful for anything else.
+
+If you want to test out the bot here is a link to a discord server: https://discord.gg/tFzrEesfNJ
 
 ## Features
+- Supports variations of Mistral (and three custom prompt models)
+- Supports Tinyllama
 
-- Supports text and image inputs
-- Validates file types for image inputs
-- Calculates the cost of API usage based on tokens used
-- Provides detailed usage statistics
+## Todo
 
-## Usage
+- [ ] More models
+- [ ] Image recognition
 
-To use this bot, read the installation and figure it out lmao
+## Prerequisites
+
+- Ollama (so at least 8GB of RAM)
+- Rust
 
 ## Installation
 
-1. Clone the repository:
+1. Clone this repository: `git clone https://github.com/DuckyBlender/duckgpt`
+2. Navigate to the cloned repository: `cd duckgpt`
+3. Install the caveman and racist model model:
+4. Install Ollama following the instructions on its [official website](https://ollama.ai/).
+5. Download the following models and create custom models
 
-   ```bash
-   git clone https://github.com/DuckyBlender/gpt4v-discord
-   ```
+bash
+```
+ollama pull dolphin-mistral
+ollama pull tinyllama
+ollama pull tinyllama:1.1b-chat-v0.6-q2_K
+ollama create caveman-mistral -f ./custom_models/caveman/Modelfile
+ollama create racist-mistral -f ./custom_models/racist/Modelfile
+ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
+```
 
-2. Install the dependencies
+One-liner:
+bash
+```
+ollama pull dolphin-mistral && ollama pull tinyllama && ollama pull tinyllama:1.1b-chat-v0.6-q2_K && ollama create caveman-mistral -f ./custom_models/caveman/Modelfile && ollama create racist-mistral -f ./custom_models/racist/Modelfile && ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
+```
 
-   ```bash
-   sudo apt install libssl-dev pkg-config
-   ```
+## Usage
 
-3. Copy the example environment file:
+1. Set the .env from the .env.example
+2. Make sure ollama is running in the background
+3. Run the bot with `cargo run --release`
 
-   ```bash
-   cp .env.example .env
-   ```
+## Contributing
 
-4. Set the required environment variables:
-
-   - `DISCORD_TOKEN`: Your Discord bot token
-   - `OPENAI_TOKEN`: Your OpenAI API token
-
-5. Set the channels in the `constants.rs`` file:
-
-   - `MAX_TOKENS`: The maximum number of tokens the bot can use per message
-   - `TESTER_ROLE_ID`: The ID of the role which can use the bot
-
-   - `LOW_QUALITY_CHANNEL_ID`: The ID of the channel for low quality image recognition
-   - `HIGH_QUALITY_CHANNEL_ID`: The ID of the channel for high quality image recognition
-
-   - `ALLOY_CHANNEL_ID`: The ID of the channel for Alloy TTS
-   - `ECHO_CHANNEL_ID`: The ID of the channel for Echo TTS
-   - `FABLE_CHANNEL_ID`: The ID of the channel for Fable TTS
-   - `ONYX_CHANNEL_ID`: The ID of the channel for Onyx TTS
-   - `NOVA_CHANNEL_ID`: The ID of the channel for Nova TTS
-   - `SHIMMER_CHANNEL_ID`: The ID of the channel for Shimmer TTS
-
-   - `DALLE3_HD_CHANNEL_ID`: The ID of the channel for DALL·E 3 HD
-   - `DALLE3_CHANNEL_ID`: The ID of the channel for DALL·E 3
-   - `DALLE2_CHANNEL_ID`: The ID of the channel for DALL·E 2
-
-   - `ERROR_COLOR`: The color of the error embeds
-   - `SUCCESS_COLOR`: The color of the success embeds
-
-   - `FOOTER_TEXT`: The text in the footer of the embeds
-
-6. Run the bot:
-
-   ```bash
-   cargo run --release
-   ```
-
-## TODO
-
-- [x] Implement typing indicator while the bot generates a response
-- [x] Create an embed for the bot's reply
-- [x] Improve error handling and error messages
-- [x] Major refactor
-- [x] More bot configuration options
-- [x] Add support for image generation (image.rs)
-- [ ] GPT-4 conversation (I'm not really sure how to implement this correctly, maybe using threads?)
-- [x] Reply instead of sending a message OR create a thread
-- [ ] Add support for multiple images in a single message
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
 
-This project is licensed under the [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/) license.
+[MIT](https://choosealicense.com/licenses/mit/)
