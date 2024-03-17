@@ -91,7 +91,13 @@ async fn llm(
 }
 
 #[poise::command(slash_command, prefix_command, user_cooldown = 10)]
-async fn img(ctx: Context<'_>, #[description = "Prompt"] prompt: String) -> Result<(), Error> {
+async fn img(
+    ctx: Context<'_>,
+    #[description = "Steps"]
+    #[choices(1, 4)]
+    steps: u32,
+    #[description = "Prompt"] prompt: String,
+) -> Result<(), Error> {
     info!("Generating image for prompt `{prompt}`...");
     ctx.defer().await?;
     let client = comfyui_rs::Client::new("127.0.0.1:8188");
@@ -102,6 +108,8 @@ async fn img(ctx: Context<'_>, #[description = "Prompt"] prompt: String) -> Resu
     json_prompt["6"]["inputs"]["text"] = serde_json::Value::String(prompt.clone());
     json_prompt["13"]["inputs"]["noise_seed"] =
         serde_json::Value::Number(serde_json::Number::from(rand::random::<u64>()));
+    json_prompt["22"]["inputs"]["steps"] =
+        serde_json::Value::Number(serde_json::Number::from(steps));
 
     let now = std::time::Instant::now();
     let images = client.get_images(json_prompt).await.unwrap();

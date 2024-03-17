@@ -2,34 +2,37 @@
 
 ## Description
 
-This is a AI Discord bot which currently supports Mistral. It requires Ollama to run in the background. This bot is mainly for fun and learning purposes. It is probably not very useful for anything else.
-
-If you want to test out the bot here is a link to a discord server: https://discord.gg/tFzrEesfNJ
+DuckGPT is a discord bot that uses the Ollama API to generate text. It supports the Mistral model and three custom models. It also has a custom comfyui-rs library which the bot can send image requests to.
+If you want to test out the bot here is a link to a discord server: <https://discord.gg/tFzrEesfNJ>
 
 ## Features
+
 - Supports variations of Mistral (and three custom prompt models)
 - Supports Tinyllama
 
 ## Todo
 
-- [ ] More models
-- [ ] Image recognition
+- [x] Image generation
+- [ ] More image generation options (normal SDXL, etc.)
+- [ ] More text models (greentext, mixtral from perplexity, openai if my account gets unrestricted lmao)
+- [ ] More /img arguments (size, steps, etc.)
+- [ ] Image recognition (LLaVa)
+- [ ] Release the comfyui-rs library as a crate on crates.io
 
 ## Prerequisites
 
-- Ollama (so at least 8GB of RAM)
+- Ollama (at least 8GB of RAM because we're running a 7B Q4 model)
 - Rust
 
 ## Installation
 
-1. Clone this repository: `git clone https://github.com/DuckyBlender/duckgpt`
-2. Navigate to the cloned repository: `cd duckgpt`
+1. Clone this repository: `git clone https://github.com/DuckyBlender/duckgpt-discord`
+2. Navigate to the cloned repository: `cd duckgpt-discord`
 3. Install the caveman and racist model model:
 4. Install Ollama following the instructions on its [official website](https://ollama.ai/).
 5. Download the following models and create custom models
 
-bash
-```
+```bash
 ollama pull dolphin-mistral
 ollama pull tinyllama
 ollama pull tinyllama:1.1b-chat-v0.6-q2_K
@@ -39,8 +42,8 @@ ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
 ```
 
 One-liner:
-bash
-```
+
+```bash
 ollama pull dolphin-mistral && ollama pull tinyllama && ollama pull tinyllama:1.1b-chat-v0.6-q2_K && ollama create caveman-mistral -f ./custom_models/caveman/Modelfile && ollama create racist-mistral -f ./custom_models/racist/Modelfile && ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
 ```
 
