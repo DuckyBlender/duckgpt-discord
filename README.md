@@ -15,7 +15,7 @@ If you want to test out the bot here is a link to a discord server: <https://dis
 - [x] Image generation
 - [ ] More image generation options (normal SDXL, etc.)
 - [ ] More /img arguments (size, steps, etc.)
-- [ ] Handle long responses (or limit the response length to 2000 characters)
+- [ ] Handle long responses (or limit the response length to 4096 characters)
 - [ ] Dynamic message editing (make sure not to get rate limited tho)
 - [ ] Image recognition (LLaVa)
 - [ ] Release the comfyui-rs library as a crate on crates.io
