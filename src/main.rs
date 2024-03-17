@@ -13,14 +13,16 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 #[derive(Debug, poise::ChoiceParameter)]
 pub enum Models {
-    #[name = "dolphin-mistral"]
+    #[name = "mistral"]
     Mistral,
-    #[name = "caveman-mistral"]
+    #[name = "caveman"]
     Caveman,
-    #[name = "racist-mistral"]
+    #[name = "racist"]
     Racist,
     #[name = "lobotomy"]
     Lobotomy,
+    #[name = "greentext"]
+    Greentext,
 }
 
 impl std::fmt::Display for Models {
@@ -30,6 +32,7 @@ impl std::fmt::Display for Models {
             Models::Caveman => write!(f, "caveman-mistral"),
             Models::Racist => write!(f, "racist-mistral"),
             Models::Lobotomy => write!(f, "tinyllama:1.1b-chat-v0.6-q2_K"),
+            Models::Greentext => write!(f, "greentext-mistral"),
         }
     }
 }
@@ -139,7 +142,7 @@ async fn img(
                     ),
                     ("Steps", format!("`{steps}`"), true),
                 ])
-                .color(0x0000_ff00)
+                .color(0x00ff00)
                 .footer(footer)
                 .timestamp(Utc::now()),
         );
