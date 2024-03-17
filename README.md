@@ -14,7 +14,6 @@ If you want to test out the bot here is a link to a discord server: <https://dis
 
 - [x] Image generation
 - [ ] More image generation options (normal SDXL, etc.)
-- [ ] More text models (greentext, mixtral from perplexity, openai if my account gets unrestricted lmao)
 - [ ] More /img arguments (size, steps, etc.)
 - [ ] Image recognition (LLaVa)
 - [ ] Release the comfyui-rs library as a crate on crates.io
