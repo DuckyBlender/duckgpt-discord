@@ -96,7 +96,7 @@ async fn llm(
 #[poise::command(slash_command, prefix_command, user_cooldown = 10)]
 async fn img(
     ctx: Context<'_>,
-    #[description = "Steps"]
+    // #[description = "Steps"]
     // #[choices(1, 4)]
     // steps: u32,
     #[description = "Prompt"] prompt: String,
