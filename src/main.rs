@@ -37,6 +37,7 @@ impl std::fmt::Display for Models {
     }
 }
 
+/// Generates a text reponse using the specified model and prompt
 #[poise::command(slash_command, prefix_command, user_cooldown = 10)]
 async fn llm(
     ctx: Context<'_>,
@@ -93,6 +94,7 @@ async fn llm(
     Ok(())
 }
 
+/// Generates an image using the specified prompt
 #[poise::command(slash_command, prefix_command, user_cooldown = 10)]
 async fn img(
     ctx: Context<'_>,
@@ -152,6 +154,7 @@ async fn img(
     Ok(())
 }
 
+/// Gets the GPU stats
 #[poise::command(slash_command, prefix_command, user_cooldown = 1)]
 async fn stats(ctx: Context<'_>) -> Result<(), Error> {
     info!("Getting stats...");
