@@ -97,8 +97,8 @@ async fn llm(
 async fn img(
     ctx: Context<'_>,
     #[description = "Steps"]
-    #[choices(1, 4)]
-    steps: u32,
+    // #[choices(1, 4)]
+    // steps: u32,
     #[description = "Prompt"] prompt: String,
 ) -> Result<(), Error> {
     info!("Generating image for prompt `{prompt}`...");
@@ -111,8 +111,8 @@ async fn img(
     json_prompt["6"]["inputs"]["text"] = serde_json::Value::String(prompt.clone());
     json_prompt["13"]["inputs"]["noise_seed"] =
         serde_json::Value::Number(serde_json::Number::from(rand::random::<u64>()));
-    json_prompt["22"]["inputs"]["steps"] =
-        serde_json::Value::Number(serde_json::Number::from(steps));
+    // json_prompt["22"]["inputs"]["steps"] =
+    //     serde_json::Value::Number(serde_json::Number::from(steps));
 
     let now = std::time::Instant::now();
     let images = client.get_images(json_prompt).await.unwrap();
@@ -140,7 +140,7 @@ async fn img(
                         format!("`{:.2}s`", elapsed as f32 / 1000.0),
                         true,
                     ),
-                    ("Steps", format!("`{steps}`"), true),
+                    // ("Steps", format!("`{steps}`"), true),
                 ])
                 .color(0x00ff00)
                 .footer(footer)
