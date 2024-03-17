@@ -137,6 +137,7 @@ async fn img(
                         format!("`{:.2}s`", elapsed as f32 / 1000.0),
                         true,
                     ),
+                    ("Steps", format!("`{steps}`"), true),
                 ])
                 .color(0x0000_ff00)
                 .footer(footer)
