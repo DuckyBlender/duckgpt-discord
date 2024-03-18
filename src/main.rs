@@ -59,7 +59,7 @@ async fn llm(
                 / (response.final_data.clone().unwrap().eval_duration as f32 / 1_000_000_000.0);
 
             let description = format!(
-                "**Prompt**\n{}\n\n**Response**\n{}",
+                "**Prompt:**\n{}\n\n**Response:**\n{}",
                 prompt, response.response
             );
 
@@ -75,9 +75,9 @@ async fn llm(
                         response.final_data.clone().unwrap().total_duration as f32
                             / 1_000_000_000.0
                     ),
-                    true,
+                    false,
                 )
-                .field("Speed", format!("`{response_speed:.2} tokens/s`"), true)
+                .field("Speed", format!("`{response_speed:.2} tokens/s`"), false)
                 .footer(footer)
                 .timestamp(Utc::now());
             let message = CreateReply::default().embed(embed);
