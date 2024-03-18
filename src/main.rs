@@ -75,9 +75,9 @@ async fn llm(
                         response.final_data.clone().unwrap().total_duration as f32
                             / 1_000_000_000.0
                     ),
-                    false,
+                    true,
                 )
-                .field("Speed", format!("`{response_speed:.2} tokens/s`"), false)
+                .field("Speed", format!("`{response_speed:.2} tokens/s`"), true)
                 .footer(footer)
                 .timestamp(Utc::now());
             let message = CreateReply::default().embed(embed);
