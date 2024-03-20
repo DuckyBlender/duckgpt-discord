@@ -31,7 +31,7 @@ impl std::fmt::Display for Models {
             Models::Mistral => write!(f, "dolphin-mistral"),
             Models::Caveman => write!(f, "caveman-mistral"),
             Models::Racist => write!(f, "racist-mistral"),
-            Models::Lobotomy => write!(f, "tinyllama:1.1b-chat-v0.6-q2_K"),
+            Models::Lobotomy => write!(f, "qwen:0.5b-chat-v1.5-q2_K"),
             Models::Greentext => write!(f, "greentext-mistral"),
         }
     }

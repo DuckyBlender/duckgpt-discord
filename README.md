@@ -36,7 +36,7 @@ If you want to test out the bot here is a link to a discord server: <https://dis
 ```bash
 ollama pull dolphin-mistral
 ollama pull tinyllama
-ollama pull tinyllama:1.1b-chat-v0.6-q2_K
+ollama pull qwen:0.5b-chat-v1.5-q2_K
 ollama create caveman-mistral -f ./custom_models/caveman/Modelfile
 ollama create racist-mistral -f ./custom_models/racist/Modelfile
 ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
@@ -45,7 +45,7 @@ ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
 One-liner:
 
 ```bash
-ollama pull dolphin-mistral && ollama pull tinyllama && ollama pull tinyllama:1.1b-chat-v0.6-q2_K && ollama create caveman-mistral -f ./custom_models/caveman/Modelfile && ollama create racist-mistral -f ./custom_models/racist/Modelfile && ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
+ollama pull dolphin-mistral && ollama pull tinyllama && ollama pull qwen:0.5b-chat-v1.5-q2_K && ollama create caveman-mistral -f ./custom_models/caveman/Modelfile && ollama create racist-mistral -f ./custom_models/racist/Modelfile && ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
 ```
 
 ## Usage
