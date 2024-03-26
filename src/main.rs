@@ -1,7 +1,7 @@
 use chrono::Utc;
 use comfyui_rs::*;
 use log::{error, info, LevelFilter};
-use ollama_rs::{generation::completion::request::GenerationRequest, Ollama};
+use ollama_rs::{generation::{completion::request::GenerationRequest, images::Image}, Ollama};
 use poise::{
     serenity_prelude::{self as serenity, CreateAttachment, CreateEmbed, CreateEmbedFooter},
     CreateReply,
@@ -98,6 +98,76 @@ async fn llm(
 
     Ok(())
 }
+
+#[poise::command(slash_command, prefix_command, user_cooldown = 10)]
+async fn clone_image(
+    ctx: Context<'_>,
+    #[description = "Image to clone"] image_url: String,
+) -> Result<(), Error> {
+    ctx.defer().await?;
+
+    // Get the image and save it to a buffer
+    let image = reqwest::get(&image_url).await?.bytes().await?;
+    // Convert image to base64
+    let image = base64::encode(image);
+
+    info!("Generating cloned image...");
+    let ollama = Ollama::default();
+    let res = ollama
+        .generate(GenerationRequest::new("llava:latest".to_string(), "Describe this image in one sentence.".to_string()).images(vec![Image::from_base64(&image)]))
+        .await;
+
+    // Response
+    let res = res.unwrap().response;
+    // Generate the image using the llava response
+    let client = comfyui_rs::Client::new("127.0.0.1:8188");
+    let json_prompt = include_str!("../workflow_api.json");
+    // Convert to JSON value
+    let mut json_prompt: serde_json::Value = serde_json::from_str(json_prompt).unwrap();
+    // Change the prompt
+    json_prompt["6"]["inputs"]["text"] = serde_json::Value::String(res.clone());
+    json_prompt["13"]["inputs"]["noise_seed"] =
+        serde_json::Value::Number(serde_json::Number::from(rand::random::<u64>()));
+    // json_prompt["22"]["inputs"]["steps"] =
+    //     serde_json::Value::Number(serde_json::Number::from(steps));
+    let now = std::time::Instant::now();
+    let images = client.get_images(json_prompt).await.unwrap();
+    let elapsed = now.elapsed().as_millis();
+    info!("Image generated successfully in {elapsed}ms");
+    // Send this as an attachment
+    // let attachment = CreateAttachment::bytes(image, "crong.png");
+    let attachments = images
+        .iter()
+        .map(|(filename, bytes)| CreateAttachment::bytes(bytes.clone(), filename))
+        .collect::<Vec<_>>();
+
+    // For now just send the first image (because we're generating one image)
+    // I'm not sure if it's even possible to send multiple images in a single message
+    let footer = CreateEmbedFooter::new("Made by @DuckyBlender | Generated with SDXL-Turbo");
+    let message = CreateReply::default()
+        .attachment(attachments[0].clone())
+        .embed(
+            CreateEmbed::default()
+                .title("SDXL-Turbo")
+                .fields(vec![
+                    ("Prompt", format!("`{res}`"), true),
+                    (
+                        "Duration",
+                        format!("`{:.2}s`", elapsed as f32 / 1000.0),
+                        true,
+                    ),
+                    // ("Steps", format!("`{steps}`"), true),
+                ])
+                .color(0x00ff00)
+                .footer(footer)
+                .timestamp(Utc::now()),
+        );
+    ctx.send(message).await?;
+    info!("Image sent successfully");
+
+    Ok(())
+}
+
 
 /// Generates an image using the specified prompt
 #[poise::command(slash_command, prefix_command, user_cooldown = 10)]
@@ -203,7 +273,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![llm(), img(), stats()],
+            commands: vec![llm(), img(), stats(), clone_image()],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
