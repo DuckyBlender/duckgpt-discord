@@ -42,7 +42,7 @@ This code is a complete mess. This is purely for educational purposes and should
 ollama pull dolphin-mistral
 ollama pull tinyllama
 ollama pull qwen:0.5b-chat-v1.5-q2_K
-ollama pull llava:7b
+ollama pull knoopx/llava-phi-2:3b-q8_0
 ollama create caveman-mistral -f ./custom_models/caveman/Modelfile
 ollama create racist-mistral -f ./custom_models/racist/Modelfile
 ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
@@ -51,7 +51,7 @@ ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
 One-liner:
 
 ```bash
-ollama pull dolphin-mistral && ollama pull tinyllama && ollama pull qwen:0.5b-chat-v1.5-q2_K && ollama pull llava:7b && ollama create caveman-mistral -f ./custom_models/caveman/Modelfile && ollama create racist-mistral -f ./custom_models/racist/Modelfile && ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
+ollama pull dolphin-mistral && ollama pull tinyllama && ollama pull qwen:0.5b-chat-v1.5-q2_K && ollama pull knoopx/llava-phi-2:3b-q8_0 && ollama create caveman-mistral -f ./custom_models/caveman/Modelfile && ollama create racist-mistral -f ./custom_models/racist/Modelfile && ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
 ```
 
 ## Usage

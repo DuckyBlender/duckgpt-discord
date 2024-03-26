@@ -89,7 +89,7 @@ async fn clone_image(
     let res = ollama
         .generate(
             GenerationRequest::new(
-                "llava:7b".to_string(),
+                "knoopx/llava-phi-2:3b-q8_0".to_string(),
                 "Describe this image in one sentence.".to_string(),
             )
             .images(vec![Image::from_base64(&image)])
@@ -125,7 +125,7 @@ async fn clone_image(
     // For now just send the first image (because we're generating one image)
     // I'm not sure if it's even possible to send multiple images in a single message
     let footer = CreateEmbedFooter::new(format!(
-        "Made by @DuckyBlender | Generated with LLaVA -> SDXL-Turbo"
+        "Made by @DuckyBlender | Generated with LLaVA-Phi -> SDXL-Turbo"
     ));
     let message = CreateReply::default()
         .attachment(attachments[0].clone())
