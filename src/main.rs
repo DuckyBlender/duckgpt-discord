@@ -14,48 +14,8 @@ struct Data {} // User data, which is stored and accessible in all command invoc
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-#[derive(Debug, poise::ChoiceParameter)]
-pub enum LLMModels {
-    #[name = "mistral"]
-    Mistral,
-    #[name = "caveman"]
-    Caveman,
-    #[name = "racist"]
-    Racist,
-    #[name = "lobotomy"]
-    Lobotomy,
-    #[name = "greentext"]
-    Greentext,
-}
-
-impl std::fmt::Display for LLMModels {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LLMModels::Mistral => write!(f, "dolphin-mistral"),
-            LLMModels::Caveman => write!(f, "caveman-mistral"),
-            LLMModels::Racist => write!(f, "racist-mistral"),
-            LLMModels::Lobotomy => write!(f, "qwen:0.5b-chat-v1.5-q2_K"),
-            LLMModels::Greentext => write!(f, "greentext-mistral"),
-        }
-    }
-}
-
-#[derive(Debug, poise::ChoiceParameter)]
-pub enum ImageModels {
-    #[name = "SDXLTurbo"]
-    SDXLTurbo,
-    #[name = "StableCascade (SLOW)"]
-    StableCascade,
-}
-
-impl std::fmt::Display for ImageModels {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ImageModels::SDXLTurbo => write!(f, "SDXL Turbo"),
-            ImageModels::StableCascade => write!(f, "Stable Cascade"),
-        }
-    }
-}
+mod models;
+use crate::models::*;
 
 /// Generates a text reponse using the specified model and prompt
 #[poise::command(slash_command, prefix_command, user_cooldown = 10)]
@@ -272,35 +232,6 @@ async fn img(
 
     Ok(())
 }
-
-/// Gets the GPU stats
-// #[poise::command(slash_command, prefix_command, user_cooldown = 1)]
-// async fn stats(ctx: Context<'_>) -> Result<(), Error> {
-//     info!("Getting stats...");
-//     let client = comfyui_rs::Client::new("127.0.0.1:8188");
-//     let stats: SystemStats = client.get_system_stats().await.unwrap();
-//     let embed = CreateEmbed::default()
-//         .title("Stats")
-//         .fields(vec![
-//             (
-//                 "GPU",
-//                 format!(
-//                     "{}\nVRAM: {}MB/{}MB",
-//                     stats.devices[0].name,
-//                     stats.devices[0].vram_free / 1_000_000, // convert to MB
-//                     stats.devices[0].vram_total / 1_000_000  // convert to MB
-//                 ),
-//                 true,
-//             ), // todo add more fields from /queue
-//         ])
-//         .color(0x00ff00)
-//         .timestamp(Utc::now());
-//     let message = CreateReply::default().embed(embed);
-//     ctx.send(message).await?;
-//     info!("Stats sent successfully");
-
-//     Ok(())
-// }
 
 #[tokio::main]
 async fn main() {
