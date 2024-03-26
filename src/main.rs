@@ -1,7 +1,10 @@
+use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::Utc;
-use comfyui_rs::*;
 use log::{error, info, LevelFilter};
-use ollama_rs::{generation::{completion::request::GenerationRequest, images::Image}, Ollama};
+use ollama_rs::{
+    generation::{completion::request::GenerationRequest, images::Image},
+    Ollama,
+};
 use poise::{
     serenity_prelude::{self as serenity, CreateAttachment, CreateEmbed, CreateEmbedFooter},
     CreateReply,
@@ -12,7 +15,7 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
 #[derive(Debug, poise::ChoiceParameter)]
-pub enum Models {
+pub enum LLMModels {
     #[name = "mistral"]
     Mistral,
     #[name = "caveman"]
@@ -25,14 +28,31 @@ pub enum Models {
     Greentext,
 }
 
-impl std::fmt::Display for Models {
+impl std::fmt::Display for LLMModels {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Models::Mistral => write!(f, "dolphin-mistral"),
-            Models::Caveman => write!(f, "caveman-mistral"),
-            Models::Racist => write!(f, "racist-mistral"),
-            Models::Lobotomy => write!(f, "qwen:0.5b-chat-v1.5-q2_K"),
-            Models::Greentext => write!(f, "greentext-mistral"),
+            LLMModels::Mistral => write!(f, "dolphin-mistral"),
+            LLMModels::Caveman => write!(f, "caveman-mistral"),
+            LLMModels::Racist => write!(f, "racist-mistral"),
+            LLMModels::Lobotomy => write!(f, "qwen:0.5b-chat-v1.5-q2_K"),
+            LLMModels::Greentext => write!(f, "greentext-mistral"),
+        }
+    }
+}
+
+#[derive(Debug, poise::ChoiceParameter)]
+pub enum ImageModels {
+    #[name = "SDXLTurbo"]
+    SDXLTurbo,
+    #[name = "StableCascade (SLOW)"]
+    StableCascade,
+}
+
+impl std::fmt::Display for ImageModels {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ImageModels::SDXLTurbo => write!(f, "SDXL Turbo"),
+            ImageModels::StableCascade => write!(f, "Stable Cascade"),
         }
     }
 }
@@ -41,7 +61,7 @@ impl std::fmt::Display for Models {
 #[poise::command(slash_command, prefix_command, user_cooldown = 10)]
 async fn llm(
     ctx: Context<'_>,
-    #[description = "Model"] model: Models,
+    #[description = "Model"] model: LLMModels,
     #[description = "Prompt"] prompt: String,
 ) -> Result<(), Error> {
     ctx.defer().await?;
@@ -109,19 +129,27 @@ async fn clone_image(
     // Get the image and save it to a buffer
     let image = reqwest::get(&image_url).await?.bytes().await?;
     // Convert image to base64
-    let image = base64::encode(image);
+    let image = STANDARD.encode(image);
 
-    info!("Generating cloned image...");
+    info!("Getting prompt from image...");
+    let start = std::time::Instant::now();
     let ollama = Ollama::default();
     let res = ollama
-        .generate(GenerationRequest::new("llava:latest".to_string(), "Describe this image in one sentence.".to_string()).images(vec![Image::from_base64(&image)]))
+        .generate(
+            GenerationRequest::new(
+                "llava:latest".to_string(),
+                "Describe this image in one sentence.".to_string(),
+            )
+            .images(vec![Image::from_base64(&image)]),
+        )
         .await;
+    let generated_now = std::time::Instant::now();
 
     // Response
     let res = res.unwrap().response;
     // Generate the image using the llava response
     let client = comfyui_rs::Client::new("127.0.0.1:8188");
-    let json_prompt = include_str!("../workflow_api.json");
+    let json_prompt = include_str!("../jsons/sdxl_turbo_api.json");
     // Convert to JSON value
     let mut json_prompt: serde_json::Value = serde_json::from_str(json_prompt).unwrap();
     // Change the prompt
@@ -130,10 +158,12 @@ async fn clone_image(
         serde_json::Value::Number(serde_json::Number::from(rand::random::<u64>()));
     // json_prompt["22"]["inputs"]["steps"] =
     //     serde_json::Value::Number(serde_json::Number::from(steps));
-    let now = std::time::Instant::now();
     let images = client.get_images(json_prompt).await.unwrap();
-    let elapsed = now.elapsed().as_millis();
-    info!("Image generated successfully in {elapsed}ms");
+    let end_now = std::time::Instant::now();
+    info!(
+        "Image generated successfully in {elapsed}ms",
+        elapsed = (end_now - start).as_millis()
+    );
     // Send this as an attachment
     // let attachment = CreateAttachment::bytes(image, "crong.png");
     let attachments = images
@@ -143,7 +173,9 @@ async fn clone_image(
 
     // For now just send the first image (because we're generating one image)
     // I'm not sure if it's even possible to send multiple images in a single message
-    let footer = CreateEmbedFooter::new("Made by @DuckyBlender | Generated with SDXL-Turbo");
+    let footer = CreateEmbedFooter::new(format!(
+        "Made by @DuckyBlender | Generated with LLaVA -> SDXL-Turbo"
+    ));
     let message = CreateReply::default()
         .attachment(attachments[0].clone())
         .embed(
@@ -153,7 +185,12 @@ async fn clone_image(
                     ("Prompt", format!("`{res}`"), true),
                     (
                         "Duration",
-                        format!("`{:.2}s`", elapsed as f32 / 1000.0),
+                        format!(
+                            "`{:.2}s + {:.2}s = {:.2}s`",
+                            (generated_now - start).as_secs_f32(),
+                            (end_now - generated_now).as_secs_f32(),
+                            (end_now - start).as_secs_f32()
+                        ),
                         true,
                     ),
                     // ("Steps", format!("`{steps}`"), true),
@@ -168,33 +205,41 @@ async fn clone_image(
     Ok(())
 }
 
-
-/// Generates an image using the specified prompt
+/// Generates an image using the specified model and prompt
 #[poise::command(slash_command, prefix_command, user_cooldown = 10)]
 async fn img(
     ctx: Context<'_>,
-    // #[description = "Steps"]
-    // #[choices(1, 4)]
-    // steps: u32,
+    #[description = "Model"] model: ImageModels,
     #[description = "Prompt"] prompt: String,
 ) -> Result<(), Error> {
     info!("Generating image for prompt `{prompt}`...");
     ctx.defer().await?;
     let client = comfyui_rs::Client::new("127.0.0.1:8188");
-    let json_prompt = include_str!("../workflow_api.json");
     // Convert to JSON value
-    let mut json_prompt: serde_json::Value = serde_json::from_str(json_prompt).unwrap();
-    // Change the prompt
-    json_prompt["6"]["inputs"]["text"] = serde_json::Value::String(prompt.clone());
-    json_prompt["13"]["inputs"]["noise_seed"] =
-        serde_json::Value::Number(serde_json::Number::from(rand::random::<u64>()));
-    // json_prompt["22"]["inputs"]["steps"] =
-    //     serde_json::Value::Number(serde_json::Number::from(steps));
+    let mut json_prompt: serde_json::Value;
+    match model {
+        ImageModels::SDXLTurbo => {
+            json_prompt =
+                serde_json::from_str(include_str!("../jsons/sdxl_turbo_api.json")).unwrap();
+            json_prompt["6"]["inputs"]["text"] = serde_json::Value::String(prompt.clone());
+            json_prompt["13"]["inputs"]["noise_seed"] =
+                serde_json::Value::Number(serde_json::Number::from(rand::random::<u64>()));
+        }
+        ImageModels::StableCascade => {
+            json_prompt =
+                serde_json::from_str(include_str!("../jsons/stable_cascade_api.json")).unwrap();
+            json_prompt["6"]["inputs"]["text"] = serde_json::Value::String(prompt.clone());
+            json_prompt["3"]["inputs"]["seed"] =
+                serde_json::Value::Number(serde_json::Number::from(rand::random::<u64>()));
+            json_prompt["33"]["inputs"]["seed"] =
+                serde_json::Value::Number(serde_json::Number::from(rand::random::<u64>()));
+        }
+    }
 
     let now = std::time::Instant::now();
     let images = client.get_images(json_prompt).await.unwrap();
     let elapsed = now.elapsed().as_millis();
-    info!("Image generated successfully in {elapsed}ms");
+    info!("Image generated successfully in {elapsed}ms using {model}");
     // Send this as an attachment
     // let attachment = CreateAttachment::bytes(image, "crong.png");
     let attachments = images
@@ -204,12 +249,12 @@ async fn img(
 
     // For now just send the first image (because we're generating one image)
     // I'm not sure if it's even possible to send multiple images in a single message
-    let footer = CreateEmbedFooter::new("Made by @DuckyBlender | Generated with SDXL-Turbo");
+    let footer = CreateEmbedFooter::new(format!("Made by @DuckyBlender | Generated with {model}"));
     let message = CreateReply::default()
         .attachment(attachments[0].clone())
         .embed(
             CreateEmbed::default()
-                .title("SDXL-Turbo")
+                .title(model.to_string())
                 .fields(vec![
                     ("Prompt", format!("`{prompt}`"), true),
                     (
@@ -230,33 +275,33 @@ async fn img(
 }
 
 /// Gets the GPU stats
-#[poise::command(slash_command, prefix_command, user_cooldown = 1)]
-async fn stats(ctx: Context<'_>) -> Result<(), Error> {
-    info!("Getting stats...");
-    let client = comfyui_rs::Client::new("127.0.0.1:8188");
-    let stats: SystemStats = client.get_system_stats().await.unwrap();
-    let embed = CreateEmbed::default()
-        .title("Stats")
-        .fields(vec![
-            (
-                "GPU",
-                format!(
-                    "{}\nVRAM: {}MB/{}MB",
-                    stats.devices[0].name,
-                    stats.devices[0].vram_free / 1_000_000, // convert to MB
-                    stats.devices[0].vram_total / 1_000_000  // convert to MB
-                ),
-                true,
-            ), // todo add more fields from /queue
-        ])
-        .color(0x00ff00)
-        .timestamp(Utc::now());
-    let message = CreateReply::default().embed(embed);
-    ctx.send(message).await?;
-    info!("Stats sent successfully");
+// #[poise::command(slash_command, prefix_command, user_cooldown = 1)]
+// async fn stats(ctx: Context<'_>) -> Result<(), Error> {
+//     info!("Getting stats...");
+//     let client = comfyui_rs::Client::new("127.0.0.1:8188");
+//     let stats: SystemStats = client.get_system_stats().await.unwrap();
+//     let embed = CreateEmbed::default()
+//         .title("Stats")
+//         .fields(vec![
+//             (
+//                 "GPU",
+//                 format!(
+//                     "{}\nVRAM: {}MB/{}MB",
+//                     stats.devices[0].name,
+//                     stats.devices[0].vram_free / 1_000_000, // convert to MB
+//                     stats.devices[0].vram_total / 1_000_000  // convert to MB
+//                 ),
+//                 true,
+//             ), // todo add more fields from /queue
+//         ])
+//         .color(0x00ff00)
+//         .timestamp(Utc::now());
+//     let message = CreateReply::default().embed(embed);
+//     ctx.send(message).await?;
+//     info!("Stats sent successfully");
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 #[tokio::main]
 async fn main() {
@@ -273,7 +318,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![llm(), img(), stats(), clone_image()],
+            commands: vec![llm(), img(), clone_image()],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {

@@ -112,14 +112,17 @@ impl Client {
 
         // Fetch history and images
         let history = self.get_history(&prompt_id).await?;
-        if history[prompt_id.clone()]["outputs"]["27"]["images"].is_array() {
-            for image in history[prompt_id.clone()]["outputs"]["27"]["images"]
-                .as_array()
-                .unwrap()
-            {
-                let filename = image["filename"].as_str().unwrap();
-                let image = self.get_image(filename).await?;
-                images.insert(filename.to_string(), image);
+        for (_, value) in history[prompt_id.clone()]["outputs"].as_object().unwrap() {
+            if value["images"].is_array() {
+                for image in value["images"].as_array().unwrap() {
+                    let filename = image["filename"].as_str().unwrap();
+                    let image = self.get_image(filename).await?;
+                    // Check if image is empty
+                    if image.len() == 0 {
+                        continue;
+                    }
+                    images.insert(filename.to_string(), image);
+                }
             }
         }
         Ok(images)

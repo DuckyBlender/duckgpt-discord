@@ -5,6 +5,10 @@
 DuckGPT is a discord bot that uses the Ollama API to generate text. It supports the Mistral model and three custom models. It also has a custom comfyui-rs library which the bot can send image requests to.
 If you want to test out the bot here is a link to a discord server: <https://discord.gg/tFzrEesfNJ>
 
+## Disclaimer
+
+This code is a complete mess. This is purely for educational purposes and should not be used in a production environment.
+
 ## Features
 
 - Supports variations of Mistral (and three custom prompt models)
