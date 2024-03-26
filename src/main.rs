@@ -135,7 +135,7 @@ async fn clone_image(
     let res = ollama
         .generate(
             GenerationRequest::new(
-                "llava:latest".to_string(),
+                "llava:7b".to_string(),
                 "Describe this image in one sentence.".to_string(),
             )
             .images(vec![Image::from_base64(&image)]),
