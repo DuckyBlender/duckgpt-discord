@@ -13,15 +13,16 @@ This code is a complete mess. This is purely for educational purposes and should
 
 - Supports variations of Mistral (and three custom prompt models)
 - Supports Tinyllama
+- Supports "cloning" images. (generate a text prompt from an image and then generate an image from that text prompt)
 
 ## Todo
 
 - [x] Image generation
-- [ ] More image generation options (normal SDXL, etc.)
+- [x] More image generation options (normal SDXL, etc.)
 - [ ] More /img arguments (size, steps, etc.)
 - [ ] Handle long responses (or limit the response length to 4096 characters)
 - [ ] Dynamic message editing (make sure not to get rate limited tho)
-- [ ] Image recognition (LLaVa)
+- [x] Image recognition (LLaVa)
 - [ ] Release the comfyui-rs library as a crate on crates.io
 
 ## Prerequisites
@@ -41,6 +42,7 @@ This code is a complete mess. This is purely for educational purposes and should
 ollama pull dolphin-mistral
 ollama pull tinyllama
 ollama pull qwen:0.5b-chat-v1.5-q2_K
+ollama pull llava:7b
 ollama create caveman-mistral -f ./custom_models/caveman/Modelfile
 ollama create racist-mistral -f ./custom_models/racist/Modelfile
 ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
@@ -49,7 +51,7 @@ ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
 One-liner:
 
 ```bash
-ollama pull dolphin-mistral && ollama pull tinyllama && ollama pull qwen:0.5b-chat-v1.5-q2_K && ollama create caveman-mistral -f ./custom_models/caveman/Modelfile && ollama create racist-mistral -f ./custom_models/racist/Modelfile && ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
+ollama pull dolphin-mistral && ollama pull tinyllama && ollama pull qwen:0.5b-chat-v1.5-q2_K && ollama pull llava:7b && ollama create caveman-mistral -f ./custom_models/caveman/Modelfile && ollama create racist-mistral -f ./custom_models/racist/Modelfile && ollama create greentext-mistral -f ./custom_models/greentext/Modelfile
 ```
 
 ## Usage
